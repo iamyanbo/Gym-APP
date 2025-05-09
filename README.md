@@ -93,9 +93,8 @@ Please report bugs, crashes, or strange behavior via GitHub Issues.
 
 ## 📝 TODO
 
-Here are some planned and suggested improvements:
+Here are some planned and suggested improvements (May or may not get to implement):
 
-- [ ] 🔒 Add biometric login or PIN lock
 - [ ] ☁️ Cloud sync via Firebase or Dropbox
 - [ ] 🎥 Add animated exercise previews
 - [ ] 🌙 Dark mode toggle
