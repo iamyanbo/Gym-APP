@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { 
   View, 
-  Text, 
   StyleSheet, 
   Dimensions, 
   TouchableOpacity, 
@@ -9,6 +8,7 @@ import {
   ActivityIndicator,
   Alert
 } from 'react-native';
+import { Text } from './TextOverride';
 import * as FileSystem from 'expo-file-system';
 import { useNavigation } from '@react-navigation/native';
 import { format } from 'date-fns';

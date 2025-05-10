@@ -46,7 +46,7 @@ export const workoutPlans = {
                 {"name": "Leg Press", "sets": 3, "reps": "10", "weight": 0},
                 {"name": "Romanian Deadlift", "sets": 3, "reps": "10", "weight": 0},
                 {"name": "Walking Lunge", "sets": 3, "reps": "12", "weight": 0},
-                {"name": "Standing Calf Raise", "sets": 3, "reps": "15", "weight": 0}
+                {"name": "Calf Raise", "sets": 3, "reps": "15", "weight": 0}
               ]
             },
             {
@@ -102,7 +102,7 @@ export const workoutPlans = {
               "exercises": [
                 {"name": "Deadlift", "sets": 4, "reps": "5", "weight": 0},
                 {"name": "Walking Lunge", "sets": 3, "reps": "12", "weight": 0},
-                {"name": "Seated Calf Raise", "sets": 3, "reps": "20", "weight": 0}
+                {"name": "Calf Raise", "sets": 3, "reps": "20", "weight": 0}
               ]
             }
           ]

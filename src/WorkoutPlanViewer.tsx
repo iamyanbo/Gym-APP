@@ -1,6 +1,7 @@
 import { workoutPlans } from './workoutPlans';
-import { View, Text, ScrollView, TextInput, TouchableOpacity, Modal, FlatList, TouchableWithoutFeedback, Alert } from 'react-native';
+import { View, ScrollView, TextInput, TouchableOpacity, Modal, FlatList, TouchableWithoutFeedback, Alert } from 'react-native';
 import React, { useState, useEffect } from 'react';
+import { Text } from './TextOverride';
 import RNPickerSelect from 'react-native-picker-select';
 import * as FileSystem from 'expo-file-system';
 import { useNavigation } from '@react-navigation/native';
@@ -405,7 +406,7 @@ function WorkoutPlanViewer() {
     };
 
     return (
-        <ScrollView style={{ padding: 16, marginTop: 40 }}>
+        <ScrollView style={{ padding: 16 }}>
             <TouchableOpacity
               style={customPickerButton}
               onPress={() => setIsPlanModalVisible(true)}
@@ -542,7 +543,7 @@ function WorkoutPlanViewer() {
                                                 <Text style={inputLabel}>Weight</Text>
                                                 <TextInput
                                                     style={inputField}
-                                                    value={exercise.weight || ''}
+                                                    value={exercise.weight}
                                                     onChangeText={(text) => updateExercise(dayIdx, exIdx, 'weight', text)}
                                                     placeholder="0"
                                                     keyboardType="numeric"
@@ -926,6 +927,7 @@ const inputField = {
     backgroundColor: '#f9f9f9',
     textAlign: 'center',
     marginTop: 4,
+    color: 'black',
 };
 
 const inputLabel = {
@@ -1044,6 +1046,7 @@ const modalInput = {
   padding: 12,
   fontSize: 16,
   marginBottom: 20,
+  color: 'black',
 };
 
 const searchInputRow = {
@@ -1150,6 +1153,7 @@ const focusInput = {
   borderBottomWidth: 1,
   borderBottomColor: '#e0e0e0',
   paddingVertical: 4,
+  color: 'black'
 };
 
 const dayNameInput = {
@@ -1162,6 +1166,7 @@ const dayNameInput = {
   fontSize: 18,
   height: 56,
   marginBottom: 20,
+  color: 'black',
 };
 
 export default WorkoutPlanViewer;

@@ -1,7 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { 
   View, 
-  Text, 
   ScrollView, 
   StyleSheet, 
   Dimensions, 
@@ -9,6 +8,7 @@ import {
   ActivityIndicator,
   FlatList
 } from 'react-native';
+import { Text } from './TextOverride';
 import { LineChart } from 'react-native-chart-kit';
 import { format } from 'date-fns';
 import * as FileSystem from 'expo-file-system';

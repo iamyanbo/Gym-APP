@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { View, Text, Button, FlatList, TouchableOpacity, StyleSheet } from "react-native";
+import { StyleSheet } from "react-native";
 import { NavigationContainer } from "@react-navigation/native";
 import WorkoutPlanViewer from "./src/WorkoutPlanViewer";
 import { createStackNavigator } from "@react-navigation/stack";
@@ -7,25 +7,30 @@ import WorkoutPage from "./src/WorkoutPage";
 import WorkoutDayViewer from "./src/WorkoutDayViewer";
 import EditPlan from "./src/EditPlan";
 import WorkoutStats from "./src/WorkoutStats";
+import { StatusBar } from 'expo-status-bar';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 const Stack = createStackNavigator();
 
 export default function App() {
   return (
-    <NavigationContainer>
-      <Stack.Navigator
-        screenOptions={{
-          gestureEnabled: false,
-          headerShown: false,
-        }}
-      >
-        <Stack.Screen name="WorkoutPage" component={WorkoutPage} />
-        <Stack.Screen name="WorkoutDayViewer" component={WorkoutDayViewer} />
-        <Stack.Screen name="WorkoutPlanViewer" component={WorkoutPlanViewer} />
-        <Stack.Screen name="EditPlan" component={EditPlan} />
-        <Stack.Screen name="WorkoutStats" component={WorkoutStats} />
-      </Stack.Navigator>
-    </NavigationContainer>
+    <SafeAreaView style={{ flex: 1, backgroundColor: '#ffffff' }}>
+      <StatusBar style="dark" backgroundColor="#ffffff" translucent={false} />
+      <NavigationContainer>
+        <Stack.Navigator
+          screenOptions={{
+            gestureEnabled: false,
+            headerShown: false,
+          }}
+        >
+          <Stack.Screen name="WorkoutPage" component={WorkoutPage} />
+          <Stack.Screen name="WorkoutDayViewer" component={WorkoutDayViewer} />
+          <Stack.Screen name="WorkoutPlanViewer" component={WorkoutPlanViewer} />
+          <Stack.Screen name="EditPlan" component={EditPlan} />
+          <Stack.Screen name="WorkoutStats" component={WorkoutStats} />
+        </Stack.Navigator>
+      </NavigationContainer>
+    </SafeAreaView>
   );
 }
 

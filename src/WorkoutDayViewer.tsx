@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, TextInput, ScrollView, TouchableOpacity, StyleSheet, Alert } from 'react-native';
+import { View, TextInput, ScrollView, TouchableOpacity, StyleSheet, Alert } from 'react-native';
 import { format } from 'date-fns';
+import { Text } from './TextOverride';
 import * as FileSystem from 'expo-file-system';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -124,7 +125,6 @@ const WorkoutDayViewer = ({ route, navigation }) => {
         await writeLatestCycle(fileName, currentCycle);
       }
       
-      console.log("saving workout to file...");
       // Save the workout entry
       const workoutEntry = {
         date: today,
@@ -145,7 +145,6 @@ const WorkoutDayViewer = ({ route, navigation }) => {
       // Write back to the file with the new workout added
       await writeCompletedWorkouts([...existingData, workoutEntry]);
   
-      console.log('Workout saved to file!', workoutEntry);
       Alert.alert('Success', 'Workout completed and saved!');
       navigation.goBack();
     } catch (error) {
