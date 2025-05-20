@@ -428,9 +428,15 @@ function WorkoutPlanViewer() {
             </View>
 
             {editablePlan.days.length === 0 ? (
-                <View style={emptyPlanContainer}>
-                    <Text style={emptyPlanText}>No workout days yet. Add your first workout day!</Text>
-                </View>
+              <View style={emptyPlanContainer}>
+                <Text style={emptyPlanText}>No workout days yet. Add your first workout day!</Text>
+                <TouchableOpacity
+                  style={addDayButton}
+                  onPress={() => openAddDayModal(0)}
+                >
+                  <Text style={addDayButtonText}>+ Add First Day</Text>
+                </TouchableOpacity>
+              </View>
             ) : (
                 <>
                     {/* Add Insert Day Button at the top */}
