@@ -113,6 +113,7 @@ Here are some planned and suggested improvements (May or may not get to implemen
 - [ ] 🔔 Add reminders for training days
 - [x] 🟦 Add App icon
 - [ ] 🧾 Add Type Definitions for better maintainability and refactoring
+- [ ] 🖼️ Add screenshots and visual demos to README
 
 ---
 
