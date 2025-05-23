@@ -95,12 +95,14 @@ Please report bugs, crashes, or strange behavior via GitHub Issues.
 
 Here are some planned and suggested improvements (May or may not get to implement):
 
+- [x] 🎨 Improve UI
 - [ ] ☁️ Cloud sync via Firebase or Dropbox
 - [ ] 🎥 Add animated exercise previews
 - [x] 🌙 Dark mode toggle
 - [x] 📅 Calendar-based workout history view
 - [ ] 📤 Export stats to CSV or PDF
 - [ ] 🔔 Add reminders for training days
+- [x] 🟦 Add App icon
 
 ---
 
