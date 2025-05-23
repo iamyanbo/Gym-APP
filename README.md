@@ -97,8 +97,8 @@ Here are some planned and suggested improvements (May or may not get to implemen
 
 - [ ] ☁️ Cloud sync via Firebase or Dropbox
 - [ ] 🎥 Add animated exercise previews
-- [ ] 🌙 Dark mode toggle
-- [ ] 📅 Calendar-based workout history view
+- [x] 🌙 Dark mode toggle
+- [x] 📅 Calendar-based workout history view
 - [ ] 📤 Export stats to CSV or PDF
 - [ ] 🔔 Add reminders for training days
 
