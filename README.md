@@ -76,10 +76,13 @@ Use Expo Go on your phone, or run the Android/iOS emulator to preview the app.
 ---
 
 ## 📦 Releases
+Prefer a ready-to-use APK?
+Head over to the Releases tab for the latest prebuilt APK you can sideload on Android.
 
-Prefer a ready-to-use APK?  
-Head over to the [**Releases**](https://github.com/yourusername/hypertrophy-app/releases) tab for the latest prebuilt APK you can sideload on Android.
-
+🧑‍💻 What about iOS?
+Currently, there is no iOS release available for direct installation.
+This is because Apple requires developers to enroll in the Apple Developer Program, which costs $99 USD per year in order to distribute apps on the App Store or even sideload on personal devices via TestFlight.
+As a result, this app is Android-only for now, unless you're building from source.
 ---
 
 ## 🐞 Issues
@@ -107,6 +110,7 @@ Here are some planned and suggested improvements (May or may not get to implemen
 - [ ] 📤 Export stats to CSV or PDF
 - [ ] 🔔 Add reminders for training days
 - [x] 🟦 Add App icon
+- [ ] 🧾 Add Type Definitions for better maintainability and refactoring
 
 ---
 
