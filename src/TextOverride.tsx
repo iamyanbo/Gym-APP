@@ -1,12 +1,17 @@
 import React from 'react';
-import { Text as RNText, TextProps, StyleSheet } from 'react-native';
+import { Text as RNText } from 'react-native';
+import { useTheme } from './ThemeContext';
 
-export function Text(props: TextProps) {
-  return <RNText {...props} style={[styles.defaultText, props.style]} />;
-}
-
-const styles = StyleSheet.create({
-    defaultText: {
-        color: 'black',
-    },
-});
+export function Text(props) {
+  const { theme } = useTheme();
+  
+  return (
+    <RNText
+      {...props}
+      style={[
+        { color: theme.text.dark },
+        props.style
+      ]}
+    />
+  );
+};

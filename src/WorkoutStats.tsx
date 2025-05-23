@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useContext } from 'react';
 import { 
   View, 
   ScrollView, 
@@ -14,13 +14,40 @@ import { format } from 'date-fns';
 import * as FileSystem from 'expo-file-system';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
+import Icon from 'react-native-vector-icons/Ionicons';
+import { WorkoutContext } from './WorkoutContext';
+import { useNavigation } from '@react-navigation/native';
+import { useTheme } from './ThemeContext';
 
-// Define constant for file path - matching the one used in WorkoutDayViewer
 const COMPLETED_WORKOUTS_FILE = FileSystem.documentDirectory + 'CompletedWorkouts.json';
 const screenWidth = Dimensions.get('window').width;
 
-function WorkoutStats({ route, navigation }) {
-  const { workoutFile } = route.params;
+const COLORS = {
+  primary: '#3a86ff',
+  primaryDark: '#2b68cc',
+  secondary: '#4361ee',
+  current: '#e8f4ff',
+  other: '#fff3e0',
+  white: '#ffffff',
+  light: '#f5f7fa',
+  border: '#eaeaea',
+  text: {
+    dark: '#333333',
+    medium: '#666666',
+    light: '#aaaaaa',
+  },
+  gradient: {
+    start: '#3a86ff',
+    end: '#4361ee'
+  },
+  accent: '#ff9e43',
+  shadow: 'rgba(0, 0, 0, 0.1)'
+};
+
+function WorkoutStats({ route }) {
+  const navigation = useNavigation();
+  const { workoutFile, currentCycle } = useContext(WorkoutContext);
+  const { theme } = useTheme();
   const [completedData, setCompletedData] = useState([]);
   const [exerciseName, setExerciseName] = useState('');
   const [allExercises, setAllExercises] = useState([]);
@@ -29,22 +56,18 @@ function WorkoutStats({ route, navigation }) {
   const [workoutName, setWorkoutName] = useState('');
   const [chartWidth, setChartWidth] = useState(0);
   
-  // Reference to the ScrollView for programmatic scrolling
   const scrollViewRef = useRef(null);
 
-  // Add navigation focus listener to reload data when screen is focused
   useEffect(() => {
     const loadData = async () => {
       try {
         setLoading(true);
-        // Load workout name from file
         const fileName = workoutFile.replace(/ /g, '_') + '.json';
         const planUri = FileSystem.documentDirectory + fileName;
         const fileContent = await FileSystem.readAsStringAsync(planUri);
         const workoutData = JSON.parse(fileContent);
         setWorkoutName(workoutData.type || workoutFile);
 
-        // Use the same constant defined at the top to ensure consistency with WorkoutDayViewer
         const fileExists = await FileSystem.getInfoAsync(COMPLETED_WORKOUTS_FILE);
         const data = fileExists.exists
           ? JSON.parse(await FileSystem.readAsStringAsync(COMPLETED_WORKOUTS_FILE))
@@ -59,7 +82,6 @@ function WorkoutStats({ route, navigation }) {
         setCompletedData(filtered);
         setAllExercises(Array.from(names).sort());
         
-        // Set default selected exercise if none is selected yet
         if (Array.from(names).length > 0 && !exerciseName) {
           setExerciseName(Array.from(names)[0]);
         }
@@ -70,19 +92,15 @@ function WorkoutStats({ route, navigation }) {
       }
     };
     
-    // Initial load
     loadData();
     
-    // Set up listener for when screen comes into focus
     const unsubscribe = navigation.addListener('focus', () => {
-      loadData(); // Reload data when screen is focused
+      loadData();
     });
     
-    // Clean up listener on component unmount
     return unsubscribe;
   }, [workoutFile, navigation]);
   
-  // Get all entries for the selected exercise
   const getExerciseEntries = () => {
     if (!exerciseName || !completedData.length) return [];
     
@@ -92,18 +110,15 @@ function WorkoutStats({ route, navigation }) {
       .sort((a, b) => new Date(a.date) - new Date(b.date));
   };
   
-  // Calculate chart width and scroll to end after the chart is rendered
   useEffect(() => {
     if (scrollViewRef.current && chartWidth > 0) {
-      // Scroll to the end of the chart
       setTimeout(() => {
         scrollViewRef.current.scrollToEnd({ animated: false });
-      }, 100); // Small delay to ensure the chart is fully rendered
+      }, 100);
     }
   }, [chartWidth, exerciseName, selectedMetric]);
   
   const safeParseFloat = (value) => {
-    // Handle various input types safely
     if (value === null || value === undefined || value === '') return 0;
     const parsed = parseFloat(value);
     return isNaN(parsed) ? 0 : parsed;
@@ -175,7 +190,6 @@ function WorkoutStats({ route, navigation }) {
     );
   };
 
-  // Custom chart component with integrated Y-axis
   const renderChart = () => {
     if (!exerciseName) {
       return (
@@ -194,24 +208,19 @@ function WorkoutStats({ route, navigation }) {
       );
     }
     
-    // Create a wider chart with all data points
-    const POINT_WIDTH = 70; // Width allocated for each data point
-    const CHART_PADDING = 0; // Reduced padding to remove gap
+    const POINT_WIDTH = 70;
+    const CHART_PADDING = 0;
     
-    // Calculate the width for the scrollable portion of the chart
     const scrollableWidth = Math.max(screenWidth - CHART_PADDING * 2, entries.length * POINT_WIDTH);
     
-    // Update the chart width state for auto scrolling
     if (chartWidth !== scrollableWidth) {
       setChartWidth(scrollableWidth);
     }
     
-    // Extract values for the Y-axis
     const values = entries.map(e => safeParseFloat(e[selectedMetric]));
-    const maxValue = Math.max(...values, 1); // Ensure at least 1 to avoid empty charts
+    const maxValue = Math.max(...values, 1);
     const minValue = Math.min(...values, 0);
     
-    // Chart data
     const chartData = {
       labels: entries.map(e => format(new Date(e.date), 'MM/dd')),
       datasets: [
@@ -223,7 +232,6 @@ function WorkoutStats({ route, navigation }) {
       ],
     };
     
-    // Calculate chart dimensions
     const chartHeight = 220;
     
     return (
@@ -245,7 +253,6 @@ function WorkoutStats({ route, navigation }) {
               showsHorizontalScrollIndicator={true}
               style={styles.chartScrollView}
               onContentSizeChange={(width) => {
-                // Scroll to the end when content size changes
                 scrollViewRef.current?.scrollToEnd({ animated: false });
               }}
             >
@@ -274,14 +281,10 @@ function WorkoutStats({ route, navigation }) {
                     strokeWidth: 1,
                     stroke: 'rgba(0, 0, 0, 0.1)',
                   },
-                  // Remove Y-axis labels completely
                   formatYLabel: () => '',
-                  // These properties remove the left padding for Y-axis labels
                   yAxisInterval: 1,
                   yLabelsOffset: 0,
-                  // Set to 0 to remove left padding where Y-axis labels would be
                   paddingLeft: 0,
-                  // Start grid at the beginning
                   paddingRight: 0,
                 }}
                 bezier
@@ -293,14 +296,11 @@ function WorkoutStats({ route, navigation }) {
                 withVerticalLines={true}
                 withHorizontalLines={true}
                 withVerticalLabels={true}
-                withHorizontalLabels={false} // Hide horizontal labels
-                // Hide Y axis labels completely
+                withHorizontalLabels={false}
                 withYAxisLabel={false}
                 horizontalLabelRotation={0}
                 renderDotContent={({ x, y, index }) => {
                   const value = values[index];
-                  // Calculate safe y position to keep label on screen
-                  // Min of 35px from top to keep label visible
                   const safeY = Math.max(35, y - 30);
                   
                   return (
@@ -372,42 +372,34 @@ function WorkoutStats({ route, navigation }) {
 
   if (loading) {
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#3a86ff" />
-        <Text style={styles.loadingText}>Loading workout data...</Text>
+      <View style={[styles.loadingContainer, { backgroundColor: theme.background }]}>
+        <ActivityIndicator size="large" color={theme.primary} />
+        <Text style={[styles.loadingText, { color: theme.text.medium }]}>Loading workout data...</Text>
       </View>
     );
   }
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
-      <LinearGradient
-        colors={['#3a86ff', '#4361ee']}
-        style={styles.headerContainer}
+    <View style={{ flex: 1, backgroundColor: theme.background }}>
+      <ScrollView 
+        style={[styles.container, { backgroundColor: theme.background }]}
+        contentContainerStyle={styles.contentContainer}
       >
-        <TouchableOpacity 
-          style={styles.backButton}
-          onPress={() => navigation.goBack()}
-        >
-          <Ionicons name="arrow-back" size={24} color="#ffffff" />
-        </TouchableOpacity>
-        <Text style={styles.title}>{workoutName} Stats</Text>
-      </LinearGradient>
-      
-      {allExercises.length > 0 ? (
-        <>
-          {renderExerciseSelector()}
-          {renderMetricSelector()}
-          {renderProgressDetails()}
-          {renderChart()}
-        </>
-      ) : (
-        <View style={styles.noDataContainer}>
-          <Text style={styles.noDataText}>No workout data available yet.</Text>
-          <Text style={styles.noDataSubtext}>Complete a workout to see your progress!</Text>
-        </View>
-      )}
-    </ScrollView>
+        {allExercises.length > 0 ? (
+          <>
+            {renderExerciseSelector()}
+            {renderMetricSelector()}
+            {renderProgressDetails()}
+            {renderChart()}
+          </>
+        ) : (
+          <View style={[styles.noDataContainer, { backgroundColor: theme.card }]}>
+            <Text style={[styles.noDataText, { color: theme.text.medium }]}>No workout data available yet.</Text>
+            <Text style={[styles.noDataSubtext, { color: theme.text.light }]}>Complete a workout to see your progress!</Text>
+          </View>
+        )}
+      </ScrollView>
+    </View>
   );
 }
 
@@ -417,7 +409,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#f8f9fa',
   },
   contentContainer: {
-    paddingBottom: 24,
+    paddingBottom: 100,
   },
   loadingContainer: {
     flex: 1,
@@ -458,7 +450,7 @@ const styles = StyleSheet.create({
     color: '#fff',
     flex: 1,
     textAlign: 'center',
-    marginRight: 40, // To offset the back button and center the title properly
+    marginRight: 40,
     textShadowColor: 'rgba(0, 0, 0, 0.2)',
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 3,

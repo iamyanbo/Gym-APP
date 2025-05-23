@@ -4,15 +4,14 @@ import RNPickerSelect from 'react-native-picker-select';
 import * as FileSystem from 'expo-file-system';
 import { useNavigation } from '@react-navigation/native';
 import { exercisesList } from './exercises';
+import { useTheme } from './ThemeContext';
 
-/**
- * EditPlan component that allows editing of existing workout plans
- */
+
 function EditPlan({ route }) {
   const navigation = useNavigation();
   const { fileUri, workoutData, workoutName } = route.params;
+  const { theme, isDark } = useTheme();
   
-  // State variables
   const [editablePlan, setEditablePlan] = useState({
     type: workoutName || 'My Workout Plan',
     days: []
@@ -29,17 +28,14 @@ function EditPlan({ route }) {
 
   const EXERCISES_FILE_PATH = FileSystem.documentDirectory + 'exercises.txt';
 
-  // Initialize the editable plan from the workout data passed via route params
   useEffect(() => {
     if (workoutData) {
       if (Array.isArray(workoutData)) {
-        // Handle old array format - convert to new JSON format
         setEditablePlan({
           type: workoutName || 'My Workout Plan',
           days: [...workoutData]
         });
       } else if (typeof workoutData === 'object' && workoutData.days) {
-        // Handle new JSON format directly
         setEditablePlan({
           type: workoutData.type || workoutName || 'My Workout Plan',
           days: [...workoutData.days]
@@ -50,7 +46,6 @@ function EditPlan({ route }) {
       }
       setIsLoading(false);
     } else {
-      // Create a new empty plan if no data provided
       setEditablePlan({
         type: workoutName || 'My Workout Plan',
         days: []
@@ -59,12 +54,10 @@ function EditPlan({ route }) {
     }
   }, [workoutData, workoutName]);
 
-  // Load exercises from file on mount
   useEffect(() => {
     loadExercises();
   }, []);
 
-  // Filter exercises based on search text
   useEffect(() => {
     if (searchText.trim() === '') {
       setFilteredExercises([]);
@@ -80,31 +73,24 @@ function EditPlan({ route }) {
 
   const loadExercises = async () => {
     try {
-      // Check if file exists in app storage
       const fileInfo = await FileSystem.getInfoAsync(EXERCISES_FILE_PATH);
       
       if (!fileInfo.exists) {
-        // Use the imported exercises
         setExerciseList(exercisesList);
-        
-        // Save to app storage for future edits
         await FileSystem.writeAsStringAsync(EXERCISES_FILE_PATH, exercisesList.join('\n'));
       } else {
         console.log('File exists, loading exercises...');
-        // Read from existing file in app storage
         const content = await FileSystem.readAsStringAsync(EXERCISES_FILE_PATH);
         setExerciseList(content.split('\n').filter(exercise => exercise.trim() !== ''));
       }
     } catch (error) {
       console.error('Error loading exercises:', error);
-      // Fallback to imported list
       setExerciseList(exercisesList);
     }
   };
 
   const handleSavePlan = async () => {
     try {
-      // Validation checks
       if (editablePlan.days.length === 0) {
         Alert.alert("No workout days", "Please add at least one day to save the plan.");
         return;
@@ -127,7 +113,6 @@ function EditPlan({ route }) {
         return;
       }
       
-      // Prepare the data in the new JSON format
       const newPlanData = {
         type: editablePlan.type,
         days: editablePlan.days
@@ -135,15 +120,12 @@ function EditPlan({ route }) {
       
       const newPlan = JSON.stringify(newPlanData, null, 2);
       
-      // If we're updating an existing file, use the same URI
       if (fileUri) {
         await FileSystem.writeAsStringAsync(fileUri, newPlan);
         console.log('Updated Plan Saved at:', fileUri);
         
-        // Navigate back to WorkoutPage with the same fileUri
         navigation.navigate('WorkoutPage', { fileUri });
       } else {
-        // If somehow we don't have a fileUri, create a new file
         const originalName = editablePlan.type;
         const safeName = originalName.replace(/[<>:"/\\|?*\x00-\x1F]/g, '_');
         const fileName = `${safeName.replace(/\s+/g, '_')}_plan.json`;
@@ -170,27 +152,23 @@ function EditPlan({ route }) {
     if (exerciseName.trim() === '') return;
     
     try {
-      // Check if exercise already exists
       if (exerciseList.includes(exerciseName.trim()) ||
           exerciseList.some(ex => ex.toLowerCase() === exerciseName.trim().toLowerCase())) {
         return;
       }
-      // Add to state
       const updatedList = [...exerciseList, exerciseName.trim()];
       setExerciseList(updatedList);
       
-      // Save to file
       await FileSystem.writeAsStringAsync(
         EXERCISES_FILE_PATH, 
         updatedList.join('\n')
       );
       
-      // Use the new exercise in the current active field
       if (activeExercise) {
         updateExercise(activeExercise.dayIdx, activeExercise.exIdx, 'name', exerciseName.trim());
       }
       
-      setIsSearchModalVisible(false); // Also close the search modal
+      setIsSearchModalVisible(false);
     } catch (error) {
       console.error('Error saving new exercise:', error);
     }
@@ -200,14 +178,11 @@ function EditPlan({ route }) {
     const updated = [...editablePlan.days];
     let parsedValue = value;
     
-    // Handle the 'sets' field specially to avoid NaN
     if (field === 'sets') {
-      // Convert to number only if value is not empty
       if (value.trim() === '') {
-        parsedValue = 0; // Default to 0 if empty
+        parsedValue = 0;
       } else {
         const parsed = parseInt(value);
-        // Check if parsing resulted in a valid number
         parsedValue = isNaN(parsed) ? 0 : parsed;
       }
     }
@@ -221,7 +196,7 @@ function EditPlan({ route }) {
   };
 
   const updateLocation = (dayIdx, value) => {
-    if (!value) return; // Guard against empty selection
+    if (!value) return;
     
     const updated = [...editablePlan.days];
     updated[dayIdx] = {
@@ -237,7 +212,6 @@ function EditPlan({ route }) {
 
   const deleteExercise = async (exerciseToDelete) => {
     try {
-      // Confirm deletion
       Alert.alert(
         "Delete Exercise",
         `Are you sure you want to delete "${exerciseToDelete}"?`,
@@ -250,25 +224,20 @@ function EditPlan({ route }) {
             text: "Delete",
             style: "destructive",
             onPress: async () => {
-              // Remove from state
               const updatedList = exerciseList.filter(ex => ex !== exerciseToDelete);
               setExerciseList(updatedList);
               
-              // Update filtered list
               setFilteredExercises(filteredExercises.filter(ex => ex !== exerciseToDelete));
               
-              // Save to file
               await FileSystem.writeAsStringAsync(
                 EXERCISES_FILE_PATH,
                 updatedList.join('\n')
               );
               
-              // Check if the deleted exercise is currently being used in the workout plan
               const planHasExercise = editablePlan.days.some(day => 
                 day.exercises.some(ex => ex.name === exerciseToDelete)
               );
               if (planHasExercise) {
-                // Remove from the workout plan
                 const updatedPlan = { ...editablePlan };
                 updatedPlan.days.forEach(day => {
                   day.exercises = day.exercises.filter(ex => ex.name !== exerciseToDelete);
@@ -303,7 +272,6 @@ function EditPlan({ route }) {
           style: "destructive",
           onPress: () => {
             const updated = [...editablePlan.days];
-            // Filter out the exercise at the specified index
             updated[dayIdx].exercises = updated[dayIdx].exercises.filter((_, index) => index !== exIdx);
             setEditablePlan({ ...editablePlan, days: updated });
           }
@@ -326,7 +294,6 @@ function EditPlan({ route }) {
 
   const addExerciseToDay = (dayIdx) => {
     const updated = [...editablePlan.days];
-    // Add new exercise with default values (3 sets, 8 reps, 0 weight)
     updated[dayIdx].exercises.push({
       name: "",
       sets: 3,
@@ -336,14 +303,12 @@ function EditPlan({ route }) {
     
     setEditablePlan({ ...editablePlan, days: updated });
     
-    // Open the exercise search modal for the new exercise
     const newExerciseIdx = updated[dayIdx].exercises.length - 1;
     setTimeout(() => {
       openExerciseSearch(dayIdx, newExerciseIdx, "");
     }, 100);
   };
 
-  // Function to open the "Add Day" modal with a specific index
   const openAddDayModal = (index = null) => {
     setInsertAtIndex(index);
     setNewDayName('');
@@ -437,55 +402,66 @@ function EditPlan({ route }) {
 
   if (isLoading) {
     return (
-      <View style={loadingContainer}>
-        <Text>Loading plan data...</Text>
+      <View style={[loadingContainer, { backgroundColor: theme.background }]}>
+        <Text style={{ color: theme.text.dark }}>Loading plan data...</Text>
       </View>
     );
   }
 
   return (
-    <ScrollView style={{ padding: 16, marginTop: 40 }}>
+    <ScrollView style={{ padding: 16, backgroundColor: theme.background }}>
       <View style={titleContainer}>
         <TextInput
-          style={planTitleInput}
+          style={[planTitleInput, { color: theme.text.dark, borderBottomColor: theme.border }]
+}
           value={editablePlan.type}
           onChangeText={updatePlanName}
           placeholder="Plan Name"
+          placeholderTextColor={theme.text.light}
         />
-        <Text style={subtitleText}>Edit Workout Plan</Text>
-        <View style={titleUnderline} />
+        <Text style={[subtitleText, { color: theme.text.medium }]}>Edit Workout Plan</Text>
+        <View style={[titleUnderline, { backgroundColor: theme.primary }]} />
       </View>
 
       {editablePlan.days.length === 0 ? (
-        <View style={emptyPlanContainer}>
-          <Text style={emptyPlanText}>No workout days yet. Add your first workout day!</Text>
+        <View style={[emptyPlanContainer, { backgroundColor: isDark ? theme.card : '#f5f5f5' }]}>
+          <Text style={[emptyPlanText, { color: theme.text.medium }]}>No workout days yet. Add your first workout day!</Text>
         </View>
       ) : (
         <>
-          {/* Add Day Button at the top */}
           <TouchableOpacity
-            style={addDayButton}
+            style={[addDayButton, { 
+              backgroundColor: isDark ? theme.card : '#e8f4ff',
+              borderColor: isDark ? theme.border : '#c8e0ff'
+            }]}
             onPress={() => openAddDayModal(0)}
           >
-            <Text style={addDayButtonText}>+ Insert Day Here</Text>
+            <Text style={[addDayButtonText, { color: theme.primary }]}>+ Insert Day Here</Text>
           </TouchableOpacity>
           
           {editablePlan.days.map((day, dayIdx) => (
             <View key={`day-section-${dayIdx}`}>
-              {dayIdx > 0 && <View style={divider} />}
+              {dayIdx > 0 && <View style={[divider, { backgroundColor: theme.border }]} />}
               
               <View style={daySection}>
                 <View style={dayHeaderRow}>
                   <View>
                     <TextInput
-                      style={dayTitleInput}
+                      style={[dayTitleInput, { 
+                        color: theme.text.dark, 
+                        borderBottomColor: theme.border 
+                      }]}
                       value={day.day}
                       onChangeText={(value) => updateDayName(dayIdx, value)}
                       placeholder="Day Name"
+                      placeholderTextColor={theme.text.light}
                     />
                   </View>
                   <TouchableOpacity
-                    style={removeDayButton}
+                    style={[removeDayButton, { 
+                      backgroundColor: isDark ? 'rgba(255, 59, 48, 0.15)' : '#fff0f0',
+                      borderColor: isDark ? 'rgba(255, 59, 48, 0.3)' : '#ffcccc' 
+                    }]}
                     onPress={() => removeDay(dayIdx)}
                   >
                     <Text style={removeDayButtonText}>Remove Day</Text>
@@ -493,7 +469,7 @@ function EditPlan({ route }) {
                 </View>
               
                 <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
-                  <Text style={{ fontSize: 14, color: 'gray', marginRight: 6 }}>Location:</Text>
+                  <Text style={{ fontSize: 14, color: theme.text.medium, marginRight: 6 }}>Location:</Text>
                   <View style={{ flex: 1 }}>
                     <RNPickerSelect
                       useNativeAndroidPickerStyle={false}
@@ -505,30 +481,60 @@ function EditPlan({ route }) {
                         { label: 'Home', value: 'Home' },
                       ]}
                       value={day.location}
-                      style={locationPickerStyle}
+                      style={{
+                        inputIOS: {
+                          fontSize: 16,
+                          color: theme.text.dark,
+                          textDecorationLine: 'underline',
+                          paddingVertical: 4,
+                          paddingHorizontal: 0,
+                        },
+                        inputAndroid: {
+                          fontSize: 16,
+                          color: theme.text.dark,
+                          textDecorationLine: 'underline',
+                          paddingVertical: 4,
+                          paddingHorizontal: 0,
+                        },
+                        placeholder: {
+                          color: theme.text.light,
+                        }
+                      }}
                       placeholder={{}}
                       key={`location-picker-${dayIdx}-${Date.now()}`}
                     />
                   </View>
                 </View>
 
-                {/* Add Focus Field */}
                 <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
-                  <Text style={{ fontSize: 14, color: 'gray', marginRight: 6 }}>Focus:</Text>
+                  <Text style={{ fontSize: 14, color: theme.text.medium, marginRight: 6 }}>Focus:</Text>
                   <TextInput
-                    style={focusInput}
+                    style={[focusInput, { 
+                      color: theme.text.dark, 
+                      borderBottomColor: theme.border 
+                    }]}
                     value={day.focus || ''}
                     onChangeText={(value) => updateDayFocus(dayIdx, value)}
                     placeholder="e.g. Upper Body, Legs, etc."
+                    placeholderTextColor={theme.text.light}
                   />
                 </View>
 
                 {day.exercises.map((exercise, exIdx) => (
-                  <View key={`exercise-${dayIdx}-${exIdx}`} style={exerciseCard}>
+                  <View 
+                    key={`exercise-${dayIdx}-${exIdx}`} 
+                    style={[exerciseCard, { 
+                      backgroundColor: theme.card,
+                      borderColor: theme.border
+                    }]}
+                  >
                     <View style={cardHeaderRow}>
-                      <Text style={cardTitle}>Exercise {exIdx + 1}</Text>
+                      <Text style={[cardTitle, { color: theme.text.dark }]}>Exercise {exIdx + 1}</Text>
                       <TouchableOpacity
-                        style={cardDeleteButton}
+                        style={[cardDeleteButton, {
+                          backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : '#f8f8f8',
+                          borderColor: theme.border
+                        }]}
                         onPress={() => deleteWorkoutExercise(dayIdx, exIdx)}
                       >
                         <Text style={cardDeleteButtonText}>×</Text>
@@ -536,45 +542,63 @@ function EditPlan({ route }) {
                     </View>
 
                     <View style={{ marginBottom: 12 }}>
-                      <Text style={inputLabel}>Exercise Name</Text>
+                      <Text style={[inputLabel, { color: theme.text.medium }]}>Exercise Name</Text>
                       <TouchableOpacity
-                        style={inputField}
+                        style={[inputField, {
+                          backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : '#f9f9f9',
+                          borderColor: theme.border
+                        }]}
                         onPress={() => openExerciseSearch(dayIdx, exIdx, exercise.name)}
                       >
-                        <Text>{exercise.name || "Select an exercise"}</Text>
+                        <Text style={{ color: theme.text.dark }}>{exercise.name || "Select an exercise"}</Text>
                       </TouchableOpacity>
                     </View>
 
                     <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 8 }}>
                       <View style={{ flex: 1 }}>
-                        <Text style={inputLabel}>Sets</Text>
+                        <Text style={[inputLabel, { color: theme.text.medium }]}>Sets</Text>
                         <TextInput
-                          style={inputField}
+                          style={[inputField, {
+                            backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : '#f9f9f9',
+                            borderColor: theme.border,
+                            color: theme.text.dark
+                          }]}
                           value={exercise.sets.toString()}
                           onChangeText={(text) => updateExercise(dayIdx, exIdx, 'sets', text)}
                           placeholder="0"
+                          placeholderTextColor={theme.text.light}
                           keyboardType="numeric"
                         />
                       </View>
 
                       <View style={{ flex: 1 }}>
-                        <Text style={inputLabel}>Reps/Seconds</Text>
+                        <Text style={[inputLabel, { color: theme.text.medium }]}>Reps/Seconds</Text>
                         <TextInput
-                          style={inputField}
+                          style={[inputField, {
+                            backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : '#f9f9f9',
+                            borderColor: theme.border,
+                            color: theme.text.dark
+                          }]}
                           value={exercise.reps}
                           onChangeText={(text) => updateExercise(dayIdx, exIdx, 'reps', text)}
                           placeholder="0"
+                          placeholderTextColor={theme.text.light}
                           keyboardType="numeric"
                         />
                       </View>
 
                       <View style={{ flex: 1 }}>
-                        <Text style={inputLabel}>Weight</Text>
+                        <Text style={[inputLabel, { color: theme.text.medium }]}>Weight</Text>
                         <TextInput
-                          style={inputField}
+                          style={[inputField, {
+                            backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : '#f9f9f9',
+                            borderColor: theme.border,
+                            color: theme.text.dark
+                          }]}
                           value={exercise.weight || ''}
                           onChangeText={(text) => updateExercise(dayIdx, exIdx, 'weight', text)}
                           placeholder="0"
+                          placeholderTextColor={theme.text.light}
                           keyboardType="numeric"
                         />
                       </View>
@@ -582,28 +606,31 @@ function EditPlan({ route }) {
                   </View>
                 ))}
                 
-                {/* Add Exercise Button */}
                 <TouchableOpacity
-                  style={addExerciseButton}
+                  style={[addExerciseButton, {
+                    backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : '#f0f0f0',
+                    borderColor: theme.border
+                  }]}
                   onPress={() => addExerciseToDay(dayIdx)}
                 >
-                  <Text style={addExerciseButtonText}>+ Add Exercise</Text>
+                  <Text style={[addExerciseButtonText, { color: theme.primary }]}>+ Add Exercise</Text>
                 </TouchableOpacity>
               </View>
 
-              {/* Add "Insert Day" button after each day */}
               <TouchableOpacity
-                style={addDayButton}
+                style={[addDayButton, { 
+                  backgroundColor: isDark ? theme.card : '#e8f4ff',
+                  borderColor: isDark ? theme.border : '#c8e0ff'
+                }]}
                 onPress={() => openAddDayModal(dayIdx + 1)}
               >
-                <Text style={addDayButtonText}>+ Insert Day Here</Text>
+                <Text style={[addDayButtonText, { color: theme.primary }]}>+ Insert Day Here</Text>
               </TouchableOpacity>
             </View>
           ))}
         </>
       )}
 
-      {/* Search Modal - Separate from the ScrollView */}
       <Modal
         visible={isSearchModalVisible}
         transparent={true}
@@ -613,21 +640,30 @@ function EditPlan({ route }) {
         <TouchableWithoutFeedback onPress={() => setIsSearchModalVisible(false)}>
           <View style={modalOverlay}>
             <TouchableWithoutFeedback onPress={() => {}}>
-              <View style={[modalContent, { maxHeight: '80%' }]}>
-                <Text style={modalTitle}>Find Exercise</Text>
+              <View style={[modalContent, { 
+                maxHeight: '80%',
+                backgroundColor: theme.card
+              }]}
+>
+                <Text style={[modalTitle, { color: theme.text.dark }]}>Find Exercise</Text>
 
-                {/* Search input row with + button */}
                 <View style={searchInputRow}>
                   <TextInput
-                    style={[modalInput, { flex: 1 }]}
+                    style={[modalInput, { 
+                      flex: 1,
+                      backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : '#fff',
+                      borderColor: theme.border,
+                      color: theme.text.dark
+                    }]}
                     value={searchText}
                     onChangeText={setSearchText}
                     placeholder="Search or type new exercise"
+                    placeholderTextColor={theme.text.light}
                     autoFocus
                   />
                   {searchText.trim() !== '' && (
                     <TouchableOpacity 
-                      style={addButton}
+                      style={[addButton, { backgroundColor: theme.primary }]}
                       onPress={() => saveNewExercise(searchText)}
                     >
                       <Text style={addButtonText}>+</Text>
@@ -635,20 +671,20 @@ function EditPlan({ route }) {
                   )}
                 </View>
 
-                {/* Exercise list */}
                 <FlatList
                   data={filteredExercises}
                   keyExtractor={(item, index) => `exercise-option-${index}`}
                   style={dropdownList}
                   renderItem={({ item }) => (
-                    <View style={dropdownItemContainer}>
+                    <View style={[dropdownItemContainer, { borderBottomColor: theme.border }]}
+>
                       <TouchableOpacity
                         style={dropdownItemContent}
                         onPress={() => activeExercise &&
                           handleExerciseSelect(activeExercise.dayIdx, activeExercise.exIdx, item)
                         }
                       >
-                        <Text>{item}</Text>
+                        <Text style={{ color: theme.text.dark }}>{item}</Text>
                       </TouchableOpacity>
                       <TouchableOpacity
                         style={deleteButton}
@@ -660,7 +696,7 @@ function EditPlan({ route }) {
                   )}
                   ListEmptyComponent={() => (
                     <View style={emptyListContainer}>
-                      <Text style={{ textAlign: 'center', padding: 12, color: '#888' }}>
+                      <Text style={{ textAlign: 'center', padding: 12, color: theme.text.medium }}>
                         No matching exercises. Add it to the list!
                       </Text>
                     </View>
@@ -668,13 +704,13 @@ function EditPlan({ route }) {
                 />
 
                 <TouchableOpacity
-                  style={closeDropdownButton}
+                  style={[closeDropdownButton, { borderTopColor: theme.border }]}
                   onPress={() => {
                     setIsSearchModalVisible(false);
                     setSearchText('');
                   }}
                 >
-                  <Text style={closeButtonText}>Close</Text>
+                  <Text style={[closeButtonText, { color: theme.text.medium }]}>Close</Text>
                 </TouchableOpacity>
               </View>
             </TouchableWithoutFeedback>
@@ -682,7 +718,6 @@ function EditPlan({ route }) {
         </TouchableWithoutFeedback>
       </Modal>
 
-      {/* Add Day Modal */}
       <Modal
         visible={isAddDayModalVisible}
         transparent
@@ -692,8 +727,13 @@ function EditPlan({ route }) {
         <TouchableWithoutFeedback onPress={() => setIsAddDayModalVisible(false)}>
           <View style={modalOverlay}>
             <TouchableWithoutFeedback onPress={() => {}}>
-              <View style={[modalContent, { maxHeight: '50%' }]}>
-                <Text style={modalTitle}>
+              <View style={[modalContent, { 
+                maxHeight: '50%',
+                backgroundColor: theme.card 
+              }]}
+>
+                <Text style={[modalTitle, { color: theme.text.dark }]}
+>
                   {insertAtIndex !== null && insertAtIndex < editablePlan.days.length 
                     ? `Insert Day Before ${editablePlan.days[insertAtIndex]?.day || 'Next Day'}`
                     : insertAtIndex === 0
@@ -702,27 +742,35 @@ function EditPlan({ route }) {
                 </Text>
 
                 <TextInput
-                  style={dayNameInput}
+                  style={[dayNameInput, {
+                    backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : '#fefefe',
+                    borderColor: theme.border,
+                    color: theme.text.dark
+                  }]}
                   value={newDayName}
                   onChangeText={setNewDayName}
                   placeholder="Enter day name (e.g., Monday, Leg Day)"
+                  placeholderTextColor={theme.text.light}
                   autoFocus
                 />
 
                 <View style={modalButtonsRow}>
                   <TouchableOpacity
-                    style={[modalButton, modalCancelButton]}
+                    style={[modalButton, modalCancelButton, {
+                      backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : '#f0f0f0',
+                      borderColor: theme.border
+                    }]}
                     onPress={() => {
                       setNewDayName('');
                       setInsertAtIndex(null);
                       setIsAddDayModalVisible(false);
                     }}
                   >
-                    <Text style={modalCancelButtonText}>Cancel</Text>
+                    <Text style={[modalCancelButtonText, { color: theme.text.medium }]}>Cancel</Text>
                   </TouchableOpacity>
 
                   <TouchableOpacity
-                    style={[modalButton, modalAddButton]}
+                    style={[modalButton, modalAddButton, { backgroundColor: theme.primary }]}
                     onPress={addDay}
                   >
                     <Text style={modalAddButtonText}>
@@ -736,17 +784,19 @@ function EditPlan({ route }) {
         </TouchableWithoutFeedback>
       </Modal>
 
-      {/* Action Buttons */}
       <View style={actionButtonsContainer}>
         <TouchableOpacity
-          style={cancelButton}
+          style={[cancelButton, {
+            backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : '#f0f0f0',
+            borderColor: theme.border
+          }]}
           onPress={() => navigation.goBack()}
         >
-          <Text style={cancelButtonText}>Cancel</Text>
+          <Text style={[cancelButtonText, { color: theme.text.medium }]}>Cancel</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={saveButton}
+          style={[saveButton, { backgroundColor: theme.primary }]}
           onPress={handleSavePlan}
         >
           <Text style={saveButtonText}>Update Plan</Text>
@@ -755,8 +805,6 @@ function EditPlan({ route }) {
     </ScrollView>
   );
 }
-
-// Styles
 
 const loadingContainer = {
   flex: 1,
@@ -768,45 +816,67 @@ const loadingContainer = {
 const planTitleInput = {
   fontSize: 32,
   fontWeight: '800',
-  color: '#222',
   textAlign: 'center',
   padding: 4,
   borderBottomWidth: 1,
-  borderBottomColor: '#e0e0e0',
 };
 
 const focusInput = {
   flex: 1, 
   fontSize: 14,
-  color: '#333',
   borderBottomWidth: 1,
-  borderBottomColor: '#e0e0e0',
   paddingVertical: 4,
 };
 
-const locationPickerStyle = {
-  inputIOS: {
-    fontSize: 16,
-    color: '#333',
-    textDecorationLine: 'underline',
-    paddingVertical: 4,
-    paddingHorizontal: 0,
-  },
-  inputAndroid: {
-    fontSize: 16,
-    color: '#333',
-    textDecorationLine: 'underline',
-    paddingVertical: 4,
-    paddingHorizontal: 0,
-  },
-  placeholder: {
-    color: '#333',
-  }
+// Define other styles that were previously included but not shown in the snippet
+const titleContainer = {
+  marginTop: 10,
+  marginBottom: 10,
+  alignItems: 'center',
+};
+
+const subtitleText = {
+  fontSize: 18,
+  marginTop: 4,
+  fontWeight: '500',
+};
+
+const titleUnderline = {
+  height: 3,
+  width: 220,
+  borderRadius: 1.5,
+  marginTop: 14,
+};
+
+const emptyPlanContainer = {
+  padding: 20,
+  borderRadius: 10,
+  alignItems: 'center',
+  marginTop: 10,
+  marginBottom: 20,
+};
+
+const emptyPlanText = {
+  fontSize: 16,
+  textAlign: 'center',
+};
+
+const addDayButton = {
+  paddingVertical: 14,
+  paddingHorizontal: 16,
+  borderRadius: 10,
+  borderWidth: 1,
+  marginBottom: 16,
+  alignItems: 'center',
+};
+
+const addDayButtonText = {
+  fontWeight: '600',
+  fontSize: 16,
 };
 
 const divider = {
   height: 1,
-  backgroundColor: '#e0e0e0',
   marginVertical: 24,
 };
 
@@ -824,19 +894,15 @@ const dayHeaderRow = {
 const dayTitleInput = {
   fontSize: 24,
   fontWeight: '700',
-  color: '#222',
   paddingVertical: 4,
   borderBottomWidth: 1,
-  borderBottomColor: '#e0e0e0',
 };
 
 const removeDayButton = {
-  backgroundColor: '#fff0f0',
   borderRadius: 8,
   paddingVertical: 6,
   paddingHorizontal: 12,
   borderWidth: 1,
-  borderColor: '#ffcccc',
 };
 
 const removeDayButtonText = {
@@ -845,21 +911,205 @@ const removeDayButtonText = {
   fontSize: 14,
 };
 
-const addDayButton = {
-  backgroundColor: '#e8f4ff',
-  paddingVertical: 14,
-  paddingHorizontal: 16,
-  borderRadius: 10,
+const exerciseCard = {
+  borderRadius: 12,
+  padding: 16,
+  marginVertical: 12,
+  elevation: 1,
   borderWidth: 1,
-  borderColor: '#c8e0ff',
-  marginBottom: 16,
+};
+
+const cardHeaderRow = {
+  flexDirection: 'row',
+  justifyContent: 'space-between',
+  alignItems: 'center',
+  marginBottom: 12,
+};
+
+const cardTitle = {
+  fontSize: 18,
+  fontWeight: '600',
+};
+
+const cardDeleteButton = {
+  width: 26,
+  height: 26,
+  borderRadius: 13,
+  justifyContent: 'center',
+  alignItems: 'center',
+  borderWidth: 1,
+};
+
+const cardDeleteButtonText = {
+  color: '#ff3b30',
+  fontSize: 18,
+  fontWeight: 'bold',
+  lineHeight: 22,
+};
+
+const inputLabel = {
+  fontSize: 10,
+  marginBottom: 2,
+  marginTop: 6,
+};
+
+const inputField = {
+  borderWidth: 1,
+  borderRadius: 8,
+  padding: 10,
+  textAlign: 'center',
+  marginTop: 4,
+};
+
+const addExerciseButton = {
+  paddingVertical: 12,
+  paddingHorizontal: 12,
+  borderRadius: 8,
+  borderWidth: 1,
+  borderStyle: 'dashed',
+  marginVertical: 10,
   alignItems: 'center',
 };
 
-const addDayButtonText = {
-  color: '#3a86ff',
+const addExerciseButtonText = {
   fontWeight: '600',
   fontSize: 16,
+};
+
+const modalOverlay = {
+  flex: 1,
+  backgroundColor: 'rgba(0,0,0,0.5)',
+  justifyContent: 'center',
+  alignItems: 'center',
+};
+
+const modalContent = {
+  width: '85%',
+  borderRadius: 12,
+  padding: 20,
+  elevation: 5,
+  shadowColor: '#000',
+  shadowOffset: { width: 0, height: 2 },
+  shadowOpacity: 0.2,
+  shadowRadius: 4,
+};
+
+const modalTitle = {
+  fontSize: 20,
+  fontWeight: '600',
+  marginBottom: 16,
+  textAlign: 'center',
+};
+
+const searchInputRow = {
+  flexDirection: 'row',
+  alignItems: 'center',
+};
+
+const modalInput = {
+  borderWidth: 1,
+  borderRadius: 8,
+  padding: 12,
+  fontSize: 16,
+  marginBottom: 20,
+};
+
+const addButton = {
+  marginLeft: 8,
+  width: 40,
+  height: 40,
+  borderRadius: 20,
+  marginTop: -20,
+  justifyContent: 'center',
+  alignItems: 'center',
+};
+
+const addButtonText = {
+  color: 'white',
+  fontSize: 24,
+  fontWeight: 'bold',
+};
+
+const dropdownList = {
+  maxHeight: 300,
+};
+
+const dropdownItemContainer = {
+  flexDirection: 'row',
+  alignItems: 'center',
+  borderBottomWidth: 1,
+};
+
+const dropdownItemContent = {
+  flex: 1,
+  padding: 12,
+};
+
+const deleteButton = {
+  padding: 12,
+  paddingHorizontal: 16,
+  justifyContent: 'center',
+  alignItems: 'center',
+};
+
+const deleteButtonText = {
+  color: '#ff3b30',
+  fontSize: 20,
+  fontWeight: 'bold',
+};
+
+const emptyListContainer = {
+  padding: 8,
+  alignItems: 'center',
+};
+
+const closeDropdownButton = {
+  padding: 12,
+  borderTopWidth: 1,
+  alignItems: 'center',
+};
+
+const closeButtonText = {
+  fontWeight: '500',
+};
+
+const dayNameInput = {
+  borderWidth: 1,
+  borderRadius: 10,
+  paddingHorizontal: 16,
+  paddingVertical: 14,
+  fontSize: 18,
+  height: 56,
+  marginBottom: 20,
+};
+
+const modalButtonsRow = {
+  flexDirection: 'row',
+  justifyContent: 'space-between',
+  gap: 12,
+};
+
+const modalButton = {
+  flex: 1,
+  paddingVertical: 10,
+  borderRadius: 8,
+  alignItems: 'center',
+};
+
+const modalCancelButton = {
+  borderWidth: 1,
+};
+
+const modalCancelButtonText = {
+  fontWeight: '500',
+};
+
+const modalAddButton = {
+};
+
+const modalAddButtonText = {
+  color: 'white',
+  fontWeight: '600',
 };
 
 const actionButtonsContainer = {
@@ -872,24 +1122,22 @@ const actionButtonsContainer = {
 
 const cancelButton = {
   flex: 1,
-  backgroundColor: '#f0f0f0',
   paddingVertical: 16,
+  paddingHorizontal: 12,
   borderRadius: 8,
   alignItems: 'center',
   borderWidth: 1,
-  borderColor: '#ddd',
 };
 
 const cancelButtonText = {
-  color: '#666',
   fontSize: 16,
   fontWeight: '600',
 };
 
 const saveButton = {
   flex: 2,
-  backgroundColor: '#3a86ff',
   paddingVertical: 16,
+  paddingHorizontal: 16,
   borderRadius: 8,
   alignItems: 'center',
 };
@@ -898,281 +1146,6 @@ const saveButtonText = {
   color: 'white',
   fontSize: 18,
   fontWeight: '700',
-};
-
-const exerciseCard = {
-  backgroundColor: '#ffffff',
-  borderRadius: 12,
-  padding: 16,
-  marginVertical: 12,
-  elevation: 1,
-  borderWidth: 1,
-  borderColor: '#e0e0e0',
-};
-
-// Empty plan state
-const emptyPlanContainer = {
-  padding: 20,
-  backgroundColor: '#f5f5f5',
-  borderRadius: 10,
-  alignItems: 'center',
-  marginTop: 10,
-  marginBottom: 20,
-};
-
-const emptyPlanText = {
-  color: '#666',
-  fontSize: 16,
-  textAlign: 'center',
-};
-
-// Card header with delete button
-const cardHeaderRow = {
-  flexDirection: 'row',
-  justifyContent: 'space-between',
-  alignItems: 'center',
-  marginBottom: 12,
-};
-
-const cardDeleteButton = {
-  width: 26,
-  height: 26,
-  borderRadius: 13,
-  backgroundColor: '#f8f8f8',
-  justifyContent: 'center',
-  alignItems: 'center',
-  borderWidth: 1,
-  borderColor: '#ddd',
-};
-
-const cardDeleteButtonText = {
-  color: '#ff3b30',
-  fontSize: 18,
-  fontWeight: 'bold',
-  lineHeight: 22,
-};
-
-const cardTitle = {
-  fontSize: 18,
-  fontWeight: '600',
-  color: '#333',
-};
-
-const inputField = {
-  borderWidth: 1,
-  borderColor: '#ccc',
-  borderRadius: 8,
-  padding: 10,
-  backgroundColor: '#f9f9f9',
-  textAlign: 'center',
-  marginTop: 4,
-};
-
-const inputLabel = {
-  fontSize: 10,
-  color: 'gray',
-  marginBottom: 2,
-  marginTop: 6,
-};
-
-const titleContainer = {
-  marginTop: 10,
-  marginBottom: 20,
-  alignItems: 'center',
-};
-
-const subtitleText = {
-  fontSize: 18,
-  color: '#666',
-  marginTop: 4,
-  fontWeight: '500',
-};
-
-const titleUnderline = {
-  height: 3,
-  width: 220,
-  backgroundColor: '#3a86ff',
-  borderRadius: 1.5,
-  marginTop: 14,
-};
-
-// Add Exercise Button Styles
-const addExerciseButton = {
-  backgroundColor: '#f0f0f0',
-  paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: '#ddd',
-    alignItems: 'center',
-    marginTop: 16,
-};
-
-const addExerciseButtonText = {
-  color: '#3a86ff',
-  fontWeight: '600',
-  fontSize: 16,
-};
-
-// Modal Styles
-const modalOverlay = {
-  flex: 1,
-  justifyContent: 'center',
-  alignItems: 'center',
-  backgroundColor: 'rgba(0, 0, 0, 0.5)',
-};
-
-const modalContent = {
-  backgroundColor: 'white',
-  borderRadius: 12,
-  padding: 20,
-  width: '90%',
-  maxHeight: '80%',
-};
-
-const modalTitle = {
-  fontSize: 24,
-  fontWeight: '700',
-  color: '#333',
-  marginBottom: 16,
-};
-
-const modalInput = {
-  borderWidth: 1,
-  borderColor: '#ccc',
-  borderRadius: 8,
-  paddingHorizontal: 12,
-  paddingVertical: 10,
-  backgroundColor: '#f9f9f9',
-  textAlign: 'left',
-  height: 48,
-  marginBottom: 0,
-  flex: 1,
-};
-
-const searchInputRow = {
-  flexDirection: 'row',
-  alignItems: 'flex-end', // forces both elements to bottom-align
-  marginBottom: 16,
-};
-
-const addButton = {
-  backgroundColor: '#3a86ff',
-  borderRadius: 8,
-  height: 48,
-  width: 48,
-  marginLeft: 8,
-  justifyContent: 'center',
-  alignItems: 'center',
-};
-
-const addButtonText = {
-  color: 'white',
-  fontSize: 28,
-  fontWeight: 'bold',
-  lineHeight: 28,
-  textAlign: 'center',
-  paddingTop: 6, // Try values between 1–3 if needed
-};
-
-const dropdownList = {
-  maxHeight: '50%',
-  width: '100%',
-  marginBottom: 16,
-};
-
-const dropdownItemContainer = {
-  flexDirection: 'row',
-  justifyContent: 'space-between',
-  alignItems: 'center',
-  paddingVertical: 8,
-  paddingHorizontal: 12,
-};
-
-const dropdownItemContent = {
-  flex: 1,
-  paddingVertical: 8,
-  paddingHorizontal: 12,
-  borderRadius: 8,
-};
-
-const deleteButton = {
-  backgroundColor: '#ffcccc',
-  borderRadius: 8,
-  paddingVertical: 6,
-  paddingHorizontal: 10,
-};
-
-const deleteButtonText = {
-  color: '#ff3b30',
-  fontSize: 16,
-  fontWeight: '600',
-};
-
-const emptyListContainer = {
-  padding: 20,
-  alignItems: 'center',
-};
-
-const closeDropdownButton = {
-  backgroundColor: '#3a86ff',
-  paddingVertical: 12,
-  borderRadius: 8,
-  alignItems: 'center',
-  marginTop: 16,
-};
-
-const closeButtonText = {
-  color: 'white',
-  fontSize: 16,
-  fontWeight: '600',
-};
-
-const modalButtonsRow = {
-  flexDirection: 'row',
-  justifyContent: 'space-between',
-  gap: 8,
-};
-
-const modalButton = {
-  flex: 1,
-  paddingVertical: 12,
-  borderRadius: 8,
-  alignItems: 'center',
-};
-
-const modalCancelButton = {
-  backgroundColor: '#f0f0f0',
-  borderWidth: 1,
-  borderColor: '#ddd',
-};
-
-const modalCancelButtonText = {
-  color: '#666',
-  fontSize: 16,
-  fontWeight: '600',
-};
-
-const modalAddButton = {
-  backgroundColor: '#3a86ff',
-};
-
-const modalAddButtonText = {
-  color: 'white',
-  fontSize: 16,
-  fontWeight: '600',
-};
-
-const dayNameInput = {
-  borderWidth: 1,
-  borderColor: '#bbb',
-  borderRadius: 10,
-  paddingHorizontal: 16,
-  paddingVertical: 14,
-  backgroundColor: '#fefefe',
-  fontSize: 18,
-  height: 56,
-  marginBottom: 20,
 };
 
 export default EditPlan;

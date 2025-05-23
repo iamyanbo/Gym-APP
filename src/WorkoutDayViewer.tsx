@@ -5,13 +5,14 @@ import { Text } from './TextOverride';
 import * as FileSystem from 'expo-file-system';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useTheme } from './ThemeContext';
 
 const COMPLETED_WORKOUTS_FILE = FileSystem.documentDirectory + 'CompletedWorkouts.json';
 
 const WorkoutDayViewer = ({ route, navigation }) => {
+  const { theme } = useTheme();
   const { dayData, dayIndex, workoutName, workoutFile, lastCycleData, totalDays } = route.params;
   
-  // Defensive check to ensure dayData and dayData.exercises exist and filter out any undefined exercises
   const exercisesData = (dayData?.exercises || []).filter(ex => ex !== undefined);
   
   const [exercises, setExercises] = useState(
@@ -26,7 +27,6 @@ const WorkoutDayViewer = ({ route, navigation }) => {
     }))
   );
   
-  // Process last cycle exercise data if available
   const getLastCycleExerciseData = (exerciseName) => {
     if (!lastCycleData || !lastCycleData.exercises) return null;
     return lastCycleData.exercises.find(ex => ex?.name === exerciseName);
@@ -38,13 +38,11 @@ const WorkoutDayViewer = ({ route, navigation }) => {
     setExercises(updatedExercises);
   };
 
-  // Function to read existing data from the file
   const readCompletedWorkouts = async () => {
     try {
       const fileInfo = await FileSystem.getInfoAsync(COMPLETED_WORKOUTS_FILE);
       
       if (!fileInfo.exists) {
-        // Create the file with an empty array if it doesn't exist
         await FileSystem.writeAsStringAsync(COMPLETED_WORKOUTS_FILE, JSON.stringify([]));
         return [];
       }
@@ -57,7 +55,6 @@ const WorkoutDayViewer = ({ route, navigation }) => {
     }
   };
 
-  // Function to write data to the file
   const writeCompletedWorkouts = async (data) => {
     try {
       await FileSystem.writeAsStringAsync(COMPLETED_WORKOUTS_FILE, JSON.stringify(data));
@@ -67,25 +64,23 @@ const WorkoutDayViewer = ({ route, navigation }) => {
     }
   };
 
-  // Function to read the latest cycle from a specific file
   const readLatestCycle = async (workoutFileName) => {
     const cycleFile = FileSystem.documentDirectory + `latestCycle_${workoutFileName}.json`;
     try {
       const fileInfo = await FileSystem.getInfoAsync(cycleFile);
       
       if (!fileInfo.exists) {
-        return 1; // Default to cycle 1 if file doesn't exist
+        return 1;
       }
       
       const fileContent = await FileSystem.readAsStringAsync(cycleFile);
       return parseInt(JSON.parse(fileContent).cycle) || 1;
     } catch (error) {
       console.error('Error reading latest cycle file:', error);
-      return 1; // Default to cycle 1 if there's an error
+      return 1;
     }
   };
 
-  // Function to write the latest cycle to a specific file
   const writeLatestCycle = async (workoutFileName, cycle) => {
     const cycleFile = FileSystem.documentDirectory + `latestCycle_${workoutFileName}.json`;
     try {
@@ -99,33 +94,26 @@ const WorkoutDayViewer = ({ route, navigation }) => {
   const handleCompleteWorkout = async () => {
     try {
       const now = new Date();
-      const today = format(now, 'yyyy-MM-dd'); // still used for display
-      const timestamp = now.toISOString();     // used for ordering
+      const today = format(now, 'yyyy-MM-dd');
+      const timestamp = now.toISOString();
       const fileName = workoutFile;
   
-      // Read existing completed workouts
       const existingData = await readCompletedWorkouts();
   
-      // Get all workouts that match the current plan
       const planWorkouts = existingData.filter(w => w.workoutFile === fileName);
   
-      // Load latest cycle from file
       const latestCycle = await readLatestCycle(fileName);
 
-      // Check how many days have been completed in the current cycle
       const currentCycleWorkouts = planWorkouts.filter(w => (w.cycle || 1) === latestCycle);
       const daysInCurrentCycle = new Set(currentCycleWorkouts.map(w => w.dayName));
 
-      // If all days are done, bump cycle and store it
       let currentCycle = latestCycle;
-      // Make sure we use totalDays from route.params, defaulting to 1 if not provided
       const totalDaysInCycle = totalDays || 1;
       if (daysInCurrentCycle.size >= totalDaysInCycle) {
         currentCycle = latestCycle + 1;
         await writeLatestCycle(fileName, currentCycle);
       }
       
-      // Save the workout entry
       const workoutEntry = {
         date: today,
         timestamp: timestamp,
@@ -142,7 +130,6 @@ const WorkoutDayViewer = ({ route, navigation }) => {
         }))
       };
   
-      // Write back to the file with the new workout added
       await writeCompletedWorkouts([...existingData, workoutEntry]);
   
       Alert.alert('Success', 'Workout completed and saved!');
@@ -154,11 +141,10 @@ const WorkoutDayViewer = ({ route, navigation }) => {
   };
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: theme.background }]}>
       <ScrollView>
-        {/* Header with Back Button and Title - Now styled like WorkoutStats */}
         <LinearGradient
-          colors={['#3a86ff', '#4361ee']}
+          colors={[theme.primary, theme.secondary]}
           style={styles.headerContainer}
         >
           <TouchableOpacity 
@@ -170,15 +156,21 @@ const WorkoutDayViewer = ({ route, navigation }) => {
           <Text style={styles.title}>{workoutName || 'Workout'}</Text>
         </LinearGradient>
 
-        {/* Exercises */}
         {exercises.length > 0 ? (
           exercises.map((exercise, index) => {
-            // Get last cycle data for this specific exercise
             const lastCycleExercise = getLastCycleExerciseData(exercise.name);
             const hasLastCycleData = lastCycleExercise != null;
             return (
-              <View key={index} style={styles.exerciseItem}>
-                <Text style={styles.exerciseName}>{exercise.name || `Exercise ${index + 1}`}</Text>
+              <View 
+                key={index} 
+                style={[
+                  styles.exerciseItem, 
+                  { backgroundColor: theme.card, borderColor: theme.border }
+                ]}
+              >
+                <Text style={[styles.exerciseName, { color: theme.text.dark }]}>
+                  {exercise.name || `Exercise ${index + 1}`}
+                </Text>
 
                 <View style={styles.exerciseDetails}>
                   <View style={styles.detailBox}>
@@ -239,13 +231,14 @@ const WorkoutDayViewer = ({ route, navigation }) => {
             );
           })
         ) : (
-          <View style={styles.noExercisesContainer}>
-            <Text style={styles.noExercisesText}>No exercises found for this workout day.</Text>
+          <View style={[styles.noExercisesContainer, { backgroundColor: theme.card }]}>
+            <Text style={[styles.noExercisesText, { color: theme.text.medium }]}>
+              No exercises found for this workout day.
+            </Text>
           </View>
         )}
       </ScrollView>
 
-      {/* Complete Workout Button */}
       <TouchableOpacity style={styles.startButton} onPress={handleCompleteWorkout}>
         <Text style={styles.startButtonText}>Complete Workout</Text>
       </TouchableOpacity>
@@ -286,7 +279,7 @@ const styles = StyleSheet.create({
     color: '#fff',
     flex: 1,
     textAlign: 'center',
-    marginRight: 40, // To offset the back button and center the title properly
+    marginRight: 40,
     textShadowColor: 'rgba(0, 0, 0, 0.2)',
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 3,
@@ -334,6 +327,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     textAlign: 'center',
     marginBottom: 6,
+    color: 'black',
   },
   referenceContainer: {
     width: '100%',

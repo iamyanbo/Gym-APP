@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useContext } from 'react';
 import { 
   View, 
   StyleSheet, 
@@ -15,16 +15,39 @@ import { format } from 'date-fns';
 import { useFocusEffect } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { LinearGradient } from 'expo-linear-gradient';
+import { WorkoutContext } from './WorkoutContext';
+import { useTheme } from './ThemeContext';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
-// Constants for file paths
 const COMPLETED_WORKOUTS_FILE = FileSystem.documentDirectory + 'CompletedWorkouts.json';
 
-/**
- * WorkoutPage component that displays a workout plan with swipeable day cards
- */
+const COLORS = {
+  primary: '#3a86ff',
+  primaryDark: '#2b68cc',
+  secondary: '#4361ee',
+  current: '#e8f4ff',
+  other: '#fff3e0',
+  white: '#ffffff',
+  light: '#f5f7fa',
+  border: '#eaeaea',
+  text: {
+    dark: '#333333',
+    medium: '#666666',
+    light: '#aaaaaa',
+  },
+  gradient: {
+    start: '#3a86ff',
+    end: '#4361ee'
+  },
+  accent: '#ff9e43',
+  shadow: 'rgba(0, 0, 0, 0.1)'
+};
+
 function WorkoutPage({ route }) {
+  const { setWorkoutFile, setCurrentCycle } = useContext(WorkoutContext);
+  const { theme } = useTheme();
+  
   const fileUri = route?.params?.fileUri;
   const [isLoading, setIsLoading] = useState(true);
   const [workoutData, setWorkoutData] = useState([]);
@@ -39,13 +62,12 @@ function WorkoutPage({ route }) {
   const [planFileName, setPlanFileName] = useState('');
   const [currentCycleNumber, setCurrentCycleNumber] = useState(1);
   const navigationParamRef = useRef(null);
+  const [dropdownVisible, setDropdownVisible] = useState(false);
 
-  // Store route navigation parameter to detect changes
   useEffect(() => {
     navigationParamRef.current = route?.params?.refreshCycle;
   }, [route?.params?.refreshCycle]);
 
-  // Extract the filename from URI for tracking completed workouts
   useEffect(() => {
     if (fileUri) {
       const fileName = fileUri.split('/').pop().replace('.json', '');
@@ -53,19 +75,16 @@ function WorkoutPage({ route }) {
     }
   }, [fileUri]);
 
-  // Check for navigation param to force refresh
   useFocusEffect(
     React.useCallback(() => {
       if (route?.params?.refreshCycle && planFileName) {
         loadCompletedWorkoutsForPlan(planFileName);
         
-        // Clear the parameter after use
         navigation.setParams({ refreshCycle: null });
       }
     }, [route?.params?.refreshCycle, planFileName])
   );
 
-  // Load completed workouts whenever the component gains focus
   useFocusEffect(
     React.useCallback(() => {
       if (planFileName) {
@@ -74,11 +93,8 @@ function WorkoutPage({ route }) {
     }, [planFileName])
   );
 
-  // Function to load completed workouts for a specific plan
   const loadCompletedWorkoutsForPlan = async (fileName) => {
     try {
-      
-      // Check if completed workouts file exists
       const fileInfo = await FileSystem.getInfoAsync(COMPLETED_WORKOUTS_FILE);
       
       if (!fileInfo.exists) {
@@ -88,14 +104,11 @@ function WorkoutPage({ route }) {
         return;
       }
       
-      // Read and parse the file
       const fileContent = await FileSystem.readAsStringAsync(COMPLETED_WORKOUTS_FILE);
       const allWorkouts = JSON.parse(fileContent);
       
-      // Filter workouts for this specific workout plan
       const planWorkouts = allWorkouts.filter(workout => workout.workoutFile === fileName);
       
-      // First load the current cycle number
       const cycleNumber = await loadCurrentCycleNumber(fileName);
       
       if (planWorkouts.length === 0) {
@@ -104,10 +117,8 @@ function WorkoutPage({ route }) {
         return;
       }
       
-      // Filter workouts from the current cycle
       const currentCycleWorkouts = planWorkouts.filter(w => (w.cycle || 1) === cycleNumber);
       
-      // Filter workouts from the previous cycle (if any)
       const lastCycle = cycleNumber > 1 ? cycleNumber - 1 : 0;
       const previousCycleWorkouts = planWorkouts.filter(w => (w.cycle || 1) === lastCycle);
       
@@ -119,7 +130,6 @@ function WorkoutPage({ route }) {
     }
   };
 
-  // Function to load current cycle number
   const loadCurrentCycleNumber = async (fileName) => {
     try {
       const cycleNumber = await readLatestCycle(fileName);
@@ -135,7 +145,6 @@ function WorkoutPage({ route }) {
     try {
       const files = await FileSystem.readDirectoryAsync(FileSystem.documentDirectory);
   
-      // Match files ending in .json but not CompletedWorkouts.json
       const workoutFiles = files.filter(file =>
         file.endsWith('.json') && 
         file !== 'CompletedWorkouts.json' &&
@@ -174,7 +183,6 @@ function WorkoutPage({ route }) {
           }
         }
   
-        // Extract file name
         const fileName = planUri.split('/').pop().replace('.json', '');
         setPlanFileName(fileName);
   
@@ -185,7 +193,6 @@ function WorkoutPage({ route }) {
           setWorkoutName(parsed.type || 'My Workout');
           setWorkoutData(parsed.days);
           
-          // Load the cycle data
           await loadCompletedWorkoutsForPlan(fileName);
         } else {
           Alert.alert('Error', 'Unable to load workout data');
@@ -201,35 +208,27 @@ function WorkoutPage({ route }) {
     loadWorkoutData();
   }, [fileUri]);
   
-  
-  // Check if a day's workout is completed
   const isWorkoutCompleted = (dayName) => {
     return completedWorkouts.some(workout => workout.dayName === dayName);
   };
 
-  // Get completed workout data for a day
   const getCompletedWorkoutData = (dayName) => {
     return completedWorkouts.find(workout => workout.dayName === dayName);
   };
 
-  // Get last cycle's workout data for a day
   const getLastCycleWorkoutData = (dayName) => {
     return lastCycleWorkouts.find(workout => workout.dayName === dayName);
   };
 
-  // Find completed exercise data by name for a specific day
   const findCompletedExerciseData = (exerciseName, dayName) => {
     const completedWorkout = getCompletedWorkoutData(dayName);
     if (!completedWorkout || !completedWorkout.exercises) return null;
     
-    // Find the exercise by name
     const exercise = completedWorkout.exercises.find(ex => ex.name === exerciseName);
     
-    // If found, return with proper field mapping
     if (exercise) {
       return {
         ...exercise,
-        // Map the regular fields to the "completed" prefix fields that the component expects
         completedSets: exercise.sets || 0,
         completedReps: exercise.reps || 0,
         completedWeight: exercise.weight || 0,
@@ -239,19 +238,15 @@ function WorkoutPage({ route }) {
     return null;
   };
 
-  // Find last cycle's exercise data by name for a specific day
   const findLastCycleExerciseData = (exerciseName, dayName) => {
     const lastCycleWorkout = getLastCycleWorkoutData(dayName);
     if (!lastCycleWorkout || !lastCycleWorkout.exercises) return null;
     
-    // Find the exercise by name
     const exercise = lastCycleWorkout.exercises.find(ex => ex.name === exerciseName);
     
-    // If found, return with proper field mapping
     if (exercise) {
       return {
         ...exercise,
-        // Map the regular fields to the "lastCycle" prefix fields
         lastCycleSets: exercise.sets || 0,
         lastCycleReps: exercise.reps || 0,
         lastCycleWeight: exercise.weight || 0,
@@ -261,7 +256,6 @@ function WorkoutPage({ route }) {
     return null;
   };
   
-  // Handle scroll events to update current page index
   const handleScroll = (event) => {
     const contentOffsetX = event.nativeEvent.contentOffset.x;
     if (SCREEN_WIDTH > 0) {
@@ -272,18 +266,15 @@ function WorkoutPage({ route }) {
     }
   };
 
-  // Handle when scroll begins
   const handleScrollBegin = () => {
     setIsScrolling(true);
   };
 
-  // Handle when scroll ends
   const handleScrollEnd = (event) => {
     handleScroll(event);
     setIsScrolling(false);
   };
 
-  // Navigate to specific day
   const goToDay = (index) => {
     if (scrollViewRef.current && index >= 0 && index < workoutData.length) {
       setIsScrolling(true);
@@ -293,25 +284,21 @@ function WorkoutPage({ route }) {
       });
       setCurrentPageIndex(index);
       
-      // Set scrolling back to false after animation completes
       setTimeout(() => {
         setIsScrolling(false);
       }, 300);
     }
   };
 
-  // Check if all days are completed
   const areAllDaysCompleted = () => {
     return workoutData.length > 0 && completedWorkouts.length >= workoutData.length;
   };
 
-  // Function to read existing data from the CompletedWorkouts.json file
   const readCompletedWorkouts = async () => {
     try {
       const fileInfo = await FileSystem.getInfoAsync(COMPLETED_WORKOUTS_FILE);
       
       if (!fileInfo.exists) {
-        // Create the file with an empty array if it doesn't exist
         await FileSystem.writeAsStringAsync(COMPLETED_WORKOUTS_FILE, JSON.stringify([]));
         return [];
       }
@@ -324,7 +311,6 @@ function WorkoutPage({ route }) {
     }
   };
 
-  // Function to write data to the CompletedWorkouts.json file
   const writeCompletedWorkouts = async (data) => {
     try {
       await FileSystem.writeAsStringAsync(COMPLETED_WORKOUTS_FILE, JSON.stringify(data));
@@ -334,25 +320,23 @@ function WorkoutPage({ route }) {
     }
   };
 
-  // Read the latest cycle from a specific file
   const readLatestCycle = async (workoutFileName) => {
     const cycleFile = FileSystem.documentDirectory + `latestCycle_${workoutFileName}.json`;
     try {
       const fileInfo = await FileSystem.getInfoAsync(cycleFile);
       
       if (!fileInfo.exists) {
-        return 1; // Default to cycle 1 if file doesn't exist
+        return 1;
       }
       
       const fileContent = await FileSystem.readAsStringAsync(cycleFile);
       return parseInt(JSON.parse(fileContent).cycle) || 1;
     } catch (error) {
       console.error('Error reading latest cycle file:', error);
-      return 1; // Default to cycle 1 if there's an error
+      return 1;
     }
   };
 
-  // Write the latest cycle to a specific file
   const writeLatestCycle = async (workoutFileName, cycle) => {
     const cycleFile = FileSystem.documentDirectory + `latestCycle_${workoutFileName}.json`;
     try {
@@ -363,7 +347,6 @@ function WorkoutPage({ route }) {
     }
   };
 
-  // Start a new cycle
   const startNewCycle = async () => {
     try {
       if (!planFileName) {
@@ -371,25 +354,20 @@ function WorkoutPage({ route }) {
         return;
       }
   
-      // Read existing workouts
       const allWorkouts = await readCompletedWorkouts();
       const planWorkouts = allWorkouts.filter(w => w.workoutFile === planFileName);
       
-      // Get the latest cycle number
       const latestCycle = planWorkouts.length > 0
         ? Math.max(...planWorkouts.map(w => w.cycle || 1))
         : 1;
       
-      // Increment cycle number and save it
       const newCycle = latestCycle + 1;
       await writeLatestCycle(planFileName, newCycle);
       
-      // Update state with new cycle information
       setCurrentCycleNumber(newCycle);
       setLastCycleWorkouts(completedWorkouts);
       setCompletedWorkouts([]);
   
-      // Go back to the first day in the scroll view
       goToDay(0);
   
       Alert.alert('Cycle Restarted', `Now starting Cycle ${newCycle}.`);
@@ -398,6 +376,16 @@ function WorkoutPage({ route }) {
       Alert.alert('Error', 'Could not start new cycle.');
     }
   };
+
+  useEffect(() => {
+    if (planFileName) {
+      setWorkoutFile(planFileName);
+    }
+  }, [planFileName, setWorkoutFile]);
+
+  useEffect(() => {
+    setCurrentCycle(currentCycleNumber);
+  }, [currentCycleNumber, setCurrentCycle]);
 
   if (hasNoPlan) {
     return (
@@ -423,23 +411,8 @@ function WorkoutPage({ route }) {
   }
 
   return (
-    <View style={styles.container}>
-      {/* Header with Title only */}
-      <LinearGradient
-        colors={['#3a86ff', '#4361ee']}
-        style={styles.headerContainer}
-      >
-        <Text style={styles.headerTitle}>{workoutName}</Text>
-          <TouchableOpacity 
-            onPress={() => navigation.navigate('WorkoutStats', { workoutFile: planFileName })}
-            style={{ marginLeft: 12 }}
-          >
-            <Icon name="bar-chart-outline" size={24} color="#ffffff" />
-          </TouchableOpacity>
-      </LinearGradient>
-
-      {/* Action buttons */}
-      <View style={styles.actionButtonsContainer}>
+    <View style={[styles.container, { backgroundColor: theme.background }]}>
+      <View style={[styles.actionButtonsContainer, { backgroundColor: theme.card, borderBottomColor: theme.border }]}>
         <TouchableOpacity 
           style={styles.editPlanButton}
           onPress={() => navigation.navigate('EditPlan', { 
@@ -459,8 +432,7 @@ function WorkoutPage({ route }) {
         </TouchableOpacity>
       </View>
 
-      {/* Day Indicators */}
-      <View style={styles.dayIndicatorsContainer}>
+      <View style={[styles.dayIndicatorsContainer, { backgroundColor: theme.card, borderBottomColor: theme.border }]}>
         <ScrollView 
           horizontal 
           showsHorizontalScrollIndicator={false}
@@ -490,7 +462,6 @@ function WorkoutPage({ route }) {
         </ScrollView>
       </View>
 
-      {/* Day Cards */}
       <ScrollView
         ref={scrollViewRef}
         horizontal
@@ -505,34 +476,32 @@ function WorkoutPage({ route }) {
           const dayCompleted = isWorkoutCompleted(day.day);
           const completedData = dayCompleted ? getCompletedWorkoutData(day.day) : null;
           
-          // Get the last cycle data for this day (if it exists)
           const lastCycleData = getLastCycleWorkoutData(day.day);
           const hasLastCycleData = lastCycleData && lastCycleData.exercises && lastCycleData.exercises.length > 0;
 
           return (
             <View style={[styles.pageContainer, { width: SCREEN_WIDTH }]} key={`day-${dayIndex}`}>
-              <View style={styles.card}>
-                {/* Day Header */}
-                <View style={styles.dayHeader}>
-                  <Text style={styles.dayTitle}>{day.day}</Text>
-                  <View style={styles.dayMeta}>
-                    <Text style={styles.dayLocation}>{day.location}</Text>
-                    {day.focus && <Text style={styles.dayFocus}> • {day.focus}</Text>}
+              <View style={[styles.card, { backgroundColor: theme.card }]}>
+                <View style={[styles.dayHeader, { borderBottomColor: theme.border }]}>
+                  <View style={styles.dayHeaderRow}>
+                    <Text style={[styles.dayTitle, { color: theme.text.dark }]}>{day.day}</Text>
+                    <View style={styles.dayMeta}>
+                      <Text style={[styles.dayLocation, { color: theme.text.medium }]}>{day.location}</Text>
+                      {day.focus && <Text style={[styles.dayFocus, { color: theme.text.medium }]}> • {day.focus}</Text>}
+                    </View>
                   </View>
                 </View>
 
-                {/* Status indicator - show if completed */}
-                {dayCompleted && (
-                  <View style={styles.completedBanner}>
-                    <Text style={styles.completedText}>✅ Workout Completed</Text>
-                    <Text style={styles.completedDate}>
-                      {completedData?.date ? format(new Date(completedData.date), 'MMM dd, yyyy') : ''}
-                    </Text>
-                  </View>
-                )}
-
-                {/* Exercises */}
                 <ScrollView style={styles.exercisesContainer}>
+                  {dayCompleted && (
+                    <View style={styles.completedBanner}>
+                      <Text style={styles.completedText}>✅ Workout Completed</Text>
+                      <Text style={styles.completedDate}>
+                        {completedData?.date ? format(new Date(completedData.date), 'MMM dd, yyyy') : ''}
+                      </Text>
+                    </View>
+                  )}
+
                   {day.exercises.map((exercise, exIndex) => {
                     const completedExercise = dayCompleted ? 
                       findCompletedExerciseData(exercise.name, day.day) : null;
@@ -544,11 +513,12 @@ function WorkoutPage({ route }) {
                       <View 
                         style={[
                           styles.exerciseItem, 
+                          { backgroundColor: theme.isDark ? theme.card : '#f9f9fb', borderColor: theme.border },
                           completedExercise && styles.completedExerciseItem
                         ]} 
                         key={`exercise-${dayIndex}-${exIndex}`}
                       >
-                        <Text style={styles.exerciseName}>{exercise.name}</Text>
+                        <Text style={[styles.exerciseName, { color: theme.text.dark }]}>{exercise.name}</Text>
                         <View style={styles.exerciseDetails}>
                           <View style={styles.detailBox}>
                             <Text style={styles.detailLabel}>Sets</Text>
@@ -597,7 +567,6 @@ function WorkoutPage({ route }) {
         })}
       </ScrollView>
 
-      {/* Page Indicator */}
       <View style={styles.paginationContainer}>
         {workoutData.map((day, index) => (
           <View
@@ -611,24 +580,22 @@ function WorkoutPage({ route }) {
         ))}
       </View>
 
-      {/* Bottom Button - Start Workout or Completed or Start New Cycle */}
-      <View style={styles.startWorkoutContainer}>
+      <View style={[styles.startWorkoutContainer, { backgroundColor: theme.card, borderTopColor: theme.border }]}>
         {areAllDaysCompleted() ? (
           <TouchableOpacity
-            style={[styles.navButton, styles.cycleButton]}
+            style={[styles.actionButton, styles.cycleButton]}
             onPress={startNewCycle}
           >
-            <Text style={styles.navButtonText}>Start New Cycle</Text>
+            <Text style={styles.actionButtonText}>Start New Cycle</Text>
           </TouchableOpacity>
         ) : isWorkoutCompleted(workoutData[currentPageIndex]?.day) ? (
-          <View style={[styles.navButton, styles.navButtonDisabled]}>
-            <Text style={styles.navButtonText}>Completed</Text>
+          <View style={[styles.actionButton, styles.navButtonDisabled]}>
+            <Text style={styles.actionButtonText}>Completed</Text>
           </View>
         ) : (
           <TouchableOpacity
-            style={styles.navButton}
+            style={styles.actionButton}
             onPress={() => {
-              // Get last cycle data for this day
               const dayName = workoutData[currentPageIndex]?.day;
               const lastCycleWorkoutData = getLastCycleWorkoutData(dayName);
               
@@ -640,14 +607,16 @@ function WorkoutPage({ route }) {
                 totalDays: workoutData.length,
                 lastCycleData: lastCycleWorkoutData || null,
                 currentCycle: currentCycleNumber,
-                refreshCycle: true // Add a flag to force refresh when coming back
+                refreshCycle: true
               });
             }}
           >
-            <Text style={styles.navButtonText}>Start Workout</Text>
+            <Text style={styles.actionButtonText}>Start Workout</Text>
           </TouchableOpacity>
         )}
       </View>
+
+      <View style={styles.navBarSpacer} />
     </View>
   );
 }
@@ -761,47 +730,48 @@ const styles = StyleSheet.create({
     flexGrow: 1,
   },
   pageContainer: {
-    paddingHorizontal: 16,
-    paddingVertical: 20,
+    paddingHorizontal: 12,
+    paddingTop: 16,
+    flex: 1,
   },
   card: {
     flex: 1,
     backgroundColor: '#fff',
     borderRadius: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-    padding: 20,
+    padding: 16,
   },
   dayHeader: {
-    marginBottom: 16,
+    marginBottom: 8,
     borderBottomWidth: 1,
     borderBottomColor: '#f0f0f0',
-    paddingBottom: 16,
+    paddingBottom: 8,
+  },
+  dayHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
   dayTitle: {
-    fontSize: 26,
+    fontSize: 20,
     fontWeight: '800',
     color: '#222',
-    marginBottom: 4,
   },
   dayMeta: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   dayLocation: {
-    fontSize: 16,
+    fontSize: 13,
     color: '#666',
     fontWeight: '500',
   },
   dayFocus: {
-    fontSize: 16,
+    fontSize: 13,
     color: '#666',
   },
   exercisesContainer: {
     flex: 1,
+    marginTop: 4,
   },
   exerciseItem: {
     backgroundColor: '#f9f9fb',
@@ -910,10 +880,12 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     borderTopWidth: 1,
     borderTopColor: '#eaeaea',
+    marginBottom: 8,
+    height: 90,
   },
   completedBanner: {
     backgroundColor: '#e8f5e9',
-    padding: 12,
+    padding: 10,
     borderRadius: 8,
     marginBottom: 16,
     alignItems: 'center',
@@ -921,14 +893,14 @@ const styles = StyleSheet.create({
     borderColor: '#4CAF50',
   },
   completedText: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '700',
     color: '#388E3C',
   },
   completedDate: {
-    fontSize: 14,
+    fontSize: 12,
     color: '#666',
-    marginTop: 4,
+    marginTop: 2,
   },
   headerContainer: {
     padding: 20,
@@ -936,16 +908,60 @@ const styles = StyleSheet.create({
     paddingBottom: 24,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'space-between',
+  },
+  headerLeft: {
+    width: 24,
+  }, 
+  headerRight: {
+    width: 24,
   },
   headerTitle: { 
     fontSize: 28, 
     fontWeight: '700',
     color: '#fff',
+    flex: 1,
     textAlign: 'center',
     textShadowColor: 'rgba(0, 0, 0, 0.2)',
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 3,
+  },
+  dropdownMenu: {
+    position: 'absolute',
+    top: 80,
+    right: 20,
+    backgroundColor: 'white',
+    borderRadius: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+    zIndex: 1000,
+  },
+  dropdownItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+  },
+  dropdownItemText: {
+    marginLeft: 10,
+    fontSize: 16,
+    color: '#333',
+  },
+  actionButton: {
+    backgroundColor: '#3a86ff',
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    alignItems: 'center',
+    borderRadius: 8,
+  },
+  actionButtonText: {
+    color: 'white',
+    fontWeight: '600',
+    fontSize: 16,
   },
 });
 

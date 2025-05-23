@@ -6,6 +6,8 @@ import RNPickerSelect from 'react-native-picker-select';
 import * as FileSystem from 'expo-file-system';
 import { useNavigation } from '@react-navigation/native';
 import { exercisesList } from './exercises';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useTheme } from './ThemeContext';
 
 type Exercise = {
     name: string;
@@ -30,6 +32,7 @@ const plans = Object.keys(workoutPlans);
 const EXERCISES_FILE_PATH = FileSystem.documentDirectory + 'exercises.txt';
 
 function WorkoutPlanViewer() {
+    const { theme, isDark } = useTheme();
     const [selectedPlan, setSelectedPlan] = useState(plans[0]);
     const [editablePlan, setEditablePlan] = useState<WorkoutPlan>(JSON.parse(JSON.stringify(workoutPlans[selectedPlan])));
     const [exerciseList, setExerciseList] = useState<string[]>([]);
@@ -41,11 +44,11 @@ function WorkoutPlanViewer() {
     const [isAddDayModalVisible, setIsAddDayModalVisible] = useState(false);
     const [newDayName, setNewDayName] = useState('');
     const [insertAtIndex, setInsertAtIndex] = useState<number | null>(null);
+    const [isFirstVisit, setIsFirstVisit] = useState(true);
     const navigation = useNavigation();
 
     const handleSavePlan = async () => {
       try {
-        // Check if the plan has any exercises
         if (editablePlan.days.length === 0) {
           Alert.alert("No workout days", "Please add at least one day to save the plan.");
           return;
@@ -56,7 +59,6 @@ function WorkoutPlanViewer() {
           return;
         }
         
-        // Check if any exercise names are empty
         if (editablePlan.days.some(day => 
             day.exercises.some(exercise => exercise.name.trim() === '')
         )) {
@@ -64,7 +66,6 @@ function WorkoutPlanViewer() {
           return;
         }
         
-        // Check if any day days have no exercises
         if (editablePlan.days.some(day => day.exercises.length === 0)) {
           Alert.alert("Empty Day", "Please ensure all days have at least one exercise before saving.");
           return;
@@ -77,10 +78,7 @@ function WorkoutPlanViewer() {
         const fileName = `${safeName.replace(/\s+/g, '_')}_${timestamp}.json`;
         const fileUri = FileSystem.documentDirectory + fileName;
 
-        // Make sure the file is writable
         await FileSystem.writeAsStringAsync(fileUri, jsonString);
-    
-        // Navigate to new page with the correct file path
         navigation.navigate('WorkoutPage', { fileUri });
       } catch (error) {
         console.error('Error saving plan:', error);
@@ -91,17 +89,14 @@ function WorkoutPlanViewer() {
       }
     };
 
-    // Load exercises from file on mount
     useEffect(() => {
         loadExercises();
     }, []);
 
-    // Reset editable plan when selected plan changes
     useEffect(() => {
         setEditablePlan(JSON.parse(JSON.stringify(workoutPlans[selectedPlan])));
     }, [selectedPlan]);
 
-    // Filter exercises based on search text
     useEffect(() => {
         if (searchText.trim() === '') {
             setFilteredExercises([]);
@@ -115,25 +110,36 @@ function WorkoutPlanViewer() {
         setFilteredExercises(matches);
     }, [searchText, exerciseList]);
 
+    useEffect(() => {
+        const checkFirstVisit = async () => {
+            try {
+                const hasVisited = await AsyncStorage.getItem('hasVisitedWorkoutPlanner');
+                if (hasVisited) {
+                    setIsFirstVisit(false);
+                } else {
+                    await AsyncStorage.setItem('hasVisitedWorkoutPlanner', 'true');
+                }
+            } catch (error) {
+                console.error('Error checking first visit status:', error);
+            }
+        };
+        
+        checkFirstVisit();
+    }, []);
+
     const loadExercises = async () => {
       try {
-        // Check if file exists in app storage
         const fileInfo = await FileSystem.getInfoAsync(EXERCISES_FILE_PATH);
         
         if (!fileInfo.exists) {
-          // Use the imported exercises
           setExerciseList(exercisesList);
-          
-          // Save to app storage for future edits
           await FileSystem.writeAsStringAsync(EXERCISES_FILE_PATH, exercisesList.join('\n'));
         } else {
-          // Read from existing file in app storage
           const content = await FileSystem.readAsStringAsync(EXERCISES_FILE_PATH);
           setExerciseList(content.split('\n').filter(exercise => exercise.trim() !== ''));
         }
       } catch (error) {
         console.error('Error loading exercises:', error);
-        // Fallback to imported list
         setExerciseList(exercisesList);
       }
     };
@@ -142,27 +148,23 @@ function WorkoutPlanViewer() {
         if (exerciseName.trim() === '') return;
         
         try {
-            // Check if exercise already exists
             if (exerciseList.includes(exerciseName.trim()) ||
                 exerciseList.some(ex => ex.toLowerCase() === exerciseName.trim().toLowerCase())) {
                 return;
             }
-            // Add to state
             const updatedList = [...exerciseList, exerciseName.trim()];
             setExerciseList(updatedList);
             
-            // Save to file
             await FileSystem.writeAsStringAsync(
                 EXERCISES_FILE_PATH, 
                 updatedList.join('\n')
             );
             
-            // Use the new exercise in the current active field
             if (activeExercise) {
                 updateExercise(activeExercise.dayIdx, activeExercise.exIdx, 'name', exerciseName.trim());
             }
             
-            setIsSearchModalVisible(false); // Also close the search modal
+            setIsSearchModalVisible(false);
         } catch (error) {
             console.error('Error saving new exercise:', error);
         }
@@ -172,14 +174,11 @@ function WorkoutPlanViewer() {
         const updated = [...editablePlan.days];
         let parsedValue = value;
         
-        // Handle the 'sets' field specially to avoid NaN
         if (field === 'sets') {
-          // Convert to number only if value is not empty
           if (value.trim() === '') {
-            parsedValue = '0'; // Default to 0 if empty
+            parsedValue = '0';
           } else {
             const parsed = parseInt(value);
-            // Check if parsing resulted in a valid number
             parsedValue = isNaN(parsed) ? '0' : parsed.toString();
           }
         }
@@ -193,7 +192,7 @@ function WorkoutPlanViewer() {
     };
 
     const updateLocation = (dayIdx: number, value: string) => {
-        if (!value) return; // Guard against empty selection
+        if (!value) return;
         
         const updated = [...editablePlan.days];
         updated[dayIdx] = {
@@ -222,7 +221,6 @@ function WorkoutPlanViewer() {
 
     const deleteExercise = async (exerciseToDelete: string) => {
       try {
-          // Confirm deletion
           Alert.alert(
               "Delete Exercise",
               `Are you sure you want to delete "${exerciseToDelete}"?`,
@@ -235,25 +233,20 @@ function WorkoutPlanViewer() {
                       text: "Delete",
                       style: "destructive",
                       onPress: async () => {
-                          // Remove from state
                           const updatedList = exerciseList.filter(ex => ex !== exerciseToDelete);
                           setExerciseList(updatedList);
                           
-                          // Update filtered list
                           setFilteredExercises(filteredExercises.filter(ex => ex !== exerciseToDelete));
                           
-                          // Save to file
                           await FileSystem.writeAsStringAsync(
                               EXERCISES_FILE_PATH,
                               updatedList.join('\n')
                           );
                           
-                          // Check if the deleted exercise is currently being used in the workout plan
                           const planHasExercise = editablePlan.days.some(day => 
                               day.exercises.some(ex => ex.name === exerciseToDelete)
                           );
                           if (planHasExercise) {
-                              // Remove from the workout plan
                               const updatedPlan = { ...editablePlan };
                               updatedPlan.days.forEach(day => {
                                   day.exercises = day.exercises.filter(ex => ex.name !== exerciseToDelete);
@@ -274,7 +267,6 @@ function WorkoutPlanViewer() {
       }
     };
 
-    // New function to delete an exercise from the workout
     const deleteWorkoutExercise = (dayIdx: number, exIdx: number) => {
         Alert.alert(
             "Delete Exercise",
@@ -289,7 +281,6 @@ function WorkoutPlanViewer() {
                     style: "destructive",
                     onPress: () => {
                         const updated = [...editablePlan.days];
-                        // Filter out the exercise at the specified index
                         updated[dayIdx].exercises = updated[dayIdx].exercises.filter((_, index) => index !== exIdx);
                         setEditablePlan({ ...editablePlan, days: updated });
                     }
@@ -310,10 +301,8 @@ function WorkoutPlanViewer() {
         setIsSearchModalVisible(true);
     };
 
-    // Function to add an exercise to a day
     const addExerciseToDay = (dayIdx: number) => {
         const updated = [...editablePlan.days];
-        // Add new exercise with default values (3 sets, 8 reps, 0 weight)
         updated[dayIdx].exercises.push({
             name: "",
             sets: 3,
@@ -323,21 +312,18 @@ function WorkoutPlanViewer() {
         
         setEditablePlan({ ...editablePlan, days: updated });
         
-        // Open the exercise search modal for the new exercise
         const newExerciseIdx = updated[dayIdx].exercises.length - 1;
         setTimeout(() => {
             openExerciseSearch(dayIdx, newExerciseIdx, "");
         }, 100);
     };
 
-    // Function to open the "Add Day" modal with a specific index
     const openAddDayModal = (index = null) => {
         setInsertAtIndex(index);
         setNewDayName('');
         setIsAddDayModalVisible(true);
     };
 
-    // Modified function to add a day to the workout plan
     const addDay = () => {
       if (!newDayName.trim()) {
         Alert.alert("Invalid Day Name", "Please enter a valid day name");
@@ -368,7 +354,6 @@ function WorkoutPlanViewer() {
       setIsAddDayModalVisible(false);
     };
 
-    // Function to remove a day from the workout plan
     const removeDay = (dayIdx: number) => {
         Alert.alert(
             "Remove Day",
@@ -391,7 +376,6 @@ function WorkoutPlanViewer() {
         );
     };
 
-    // Helper function to update day name
     const updateDayName = (dayIdx: number, value: string) => {
         const updated = [...editablePlan.days];
         updated[dayIdx] = {
@@ -406,63 +390,85 @@ function WorkoutPlanViewer() {
     };
 
     return (
-        <ScrollView style={{ padding: 16 }}>
+        <ScrollView style={{ padding: 16, backgroundColor: theme.background }}>
             <TouchableOpacity
-              style={customPickerButton}
+              style={[customPickerButton, {
+                borderColor: theme.border,
+                backgroundColor: theme.card,
+              }]}
               onPress={() => setIsPlanModalVisible(true)}
             >
-              <Text style={customPickerButtonText}>
+              <Text style={[customPickerButtonText, { color: theme.text.dark }]}>
                 {workoutPlans[selectedPlan]?.type || "Select a Plan"}
               </Text>
             </TouchableOpacity>
 
             <View style={titleContainer}>
               <TextInput
-                style={[mainTitle, { textAlign: 'center', borderBottomWidth: 1, borderColor: '#ccc', paddingVertical: 4 }]}
+                style={[mainTitle, { 
+                  textAlign: 'center', 
+                  borderBottomWidth: 1, 
+                  borderColor: theme.border,
+                  color: theme.text.dark,
+                  paddingVertical: 4 
+                }]}
                 value={editablePlan.type}
                 onChangeText={(text) => setEditablePlan({ ...editablePlan, type: text })}
                 placeholder="Enter Plan Name"
+                placeholderTextColor={theme.text.light}
               />
-              <Text style={subtitleText}>Workout Plan</Text>
-              <View style={titleUnderline} />
+              <Text style={[subtitleText, { color: theme.text.medium }]}>Workout Plan</Text>
+              <View style={[titleUnderline, { backgroundColor: theme.primary }]} />
             </View>
 
             {editablePlan.days.length === 0 ? (
-              <View style={emptyPlanContainer}>
-                <Text style={emptyPlanText}>No workout days yet. Add your first workout day!</Text>
+              <View style={[emptyPlanContainer, { backgroundColor: isDark ? theme.card : '#f5f5f5' }]}>
+                <Text style={[emptyPlanText, { color: theme.text.medium }]}>No workout days yet. Add your first workout day!</Text>
                 <TouchableOpacity
-                  style={addDayButton}
+                  style={[addDayButton, { 
+                    backgroundColor: isDark ? theme.card : '#e8f4ff',
+                    borderColor: isDark ? theme.border : '#c8e0ff'
+                  }]}
                   onPress={() => openAddDayModal(0)}
                 >
-                  <Text style={addDayButtonText}>+ Add First Day</Text>
+                  <Text style={[addDayButtonText, { color: theme.primary }]}>+ Add First Day</Text>
                 </TouchableOpacity>
               </View>
             ) : (
                 <>
-                    {/* Add Insert Day Button at the top */}
                     <TouchableOpacity
-                        style={addDayButton}
+                        style={[addDayButton, { 
+                          backgroundColor: isDark ? theme.card : '#e8f4ff',
+                          borderColor: isDark ? theme.border : '#c8e0ff'
+                        }]}
                         onPress={() => openAddDayModal(0)}
                     >
-                        <Text style={addDayButtonText}>+ Insert Day Here</Text>
+                        <Text style={[addDayButtonText, { color: theme.primary }]}>+ Insert Day Here</Text>
                     </TouchableOpacity>
 
                     {editablePlan.days.map((day, dayIdx) => (
                         <View key={`day-section-${dayIdx}`}>
-                            {dayIdx > 0 && <View style={divider} />}
+                            {dayIdx > 0 && <View style={[divider, { backgroundColor: theme.border }]} />}
                             
                             <View style={daySection}>
                                 <View style={dayHeaderRow}>
                                     <View>
                                         <TextInput
-                                            style={dayTitleInput}
+                                            style={[dayTitleInput, { 
+                                              color: theme.text.dark,
+                                              borderBottomColor: theme.border 
+                                            }]}
                                             value={day.day}
                                             onChangeText={(value) => updateDayName(dayIdx, value)}
                                             placeholder="Day Name"
+                                            placeholderTextColor={theme.text.light}
                                         />
                                     </View>
                                     <TouchableOpacity
-                                        style={removeDayButton}
+                                        style={[removeDayButton, { 
+                                          backgroundColor: isDark ? 'rgba(255, 59, 48, 0.15)' : '#fff0f0',
+                                          borderColor: isDark ? 'rgba(255, 59, 48, 0.3)' : '#ffcccc' 
+                                        }]}
                                         onPress={() => removeDay(dayIdx)}
                                     >
                                         <Text style={removeDayButtonText}>Remove Day</Text>
@@ -470,7 +476,7 @@ function WorkoutPlanViewer() {
                                 </View>
                             
                                 <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
-                                    <Text style={{ fontSize: 14, color: 'gray', marginRight: 6 }}>Location:</Text>
+                                    <Text style={{ fontSize: 14, color: theme.text.medium, marginRight: 6 }}>Location:</Text>
                                     <View style={{ flex: 1 }}>
                                         <RNPickerSelect
                                             useNativeAndroidPickerStyle={false}
@@ -482,30 +488,60 @@ function WorkoutPlanViewer() {
                                                 { label: 'Home', value: 'Home' },
                                             ]}
                                             value={day.location}
-                                            style={locationPickerStyle}
+                                            style={{
+                                              inputIOS: {
+                                                fontSize: 16,
+                                                color: theme.text.dark,
+                                                textDecorationLine: 'underline',
+                                                paddingVertical: 4,
+                                                paddingHorizontal: 0,
+                                              },
+                                              inputAndroid: {
+                                                fontSize: 16,
+                                                color: theme.text.dark,
+                                                textDecorationLine: 'underline',
+                                                paddingVertical: 4,
+                                                paddingHorizontal: 0,
+                                              },
+                                              placeholder: {
+                                                color: theme.text.light,
+                                              }
+                                            }}
                                             placeholder={{}}
                                             key={`location-picker-${dayIdx}-${Date.now()}`}
                                         />
                                     </View>
                                 </View>
 
-                                {/* Add Focus Field */}
                                 <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
-                                    <Text style={{ fontSize: 14, color: 'gray', marginRight: 6 }}>Focus:</Text>
+                                    <Text style={{ fontSize: 14, color: theme.text.medium, marginRight: 6 }}>Focus:</Text>
                                     <TextInput
-                                        style={focusInput}
+                                        style={[focusInput, { 
+                                          color: theme.text.dark,
+                                          borderBottomColor: theme.border
+                                        }]}
                                         value={day.focus || ''}
                                         onChangeText={(value) => updateDayFocus(dayIdx, value)}
                                         placeholder="e.g. Upper Body, Legs, etc."
+                                        placeholderTextColor={theme.text.light}
                                     />
                                 </View>
 
                                 {day.exercises.map((exercise, exIdx) => (
-                                    <View key={`exercise-${dayIdx}-${exIdx}`} style={exerciseCard}>
+                                    <View 
+                                      key={`exercise-${dayIdx}-${exIdx}`} 
+                                      style={[exerciseCard, { 
+                                        backgroundColor: theme.card,
+                                        borderColor: theme.border
+                                      }]}
+                                    >
                                         <View style={cardHeaderRow}>
-                                            <Text style={cardTitle}>Exercise {exIdx + 1}</Text>
+                                            <Text style={[cardTitle, { color: theme.text.dark }]}>Exercise {exIdx + 1}</Text>
                                             <TouchableOpacity
-                                                style={cardDeleteButton}
+                                                style={[cardDeleteButton, {
+                                                  backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : '#f8f8f8',
+                                                  borderColor: theme.border
+                                                }]}
                                                 onPress={() => deleteWorkoutExercise(dayIdx, exIdx)}
                                             >
                                                 <Text style={cardDeleteButtonText}>×</Text>
@@ -513,45 +549,65 @@ function WorkoutPlanViewer() {
                                         </View>
 
                                         <View style={{ marginBottom: 12 }}>
-                                            <Text style={inputLabel}>Exercise Name</Text>
+                                            <Text style={[inputLabel, { color: theme.text.medium }]}>Exercise Name</Text>
                                             <TouchableOpacity
-                                                style={inputField}
+                                                style={[inputField, {
+                                                  backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : '#f9f9f9',
+                                                  borderColor: theme.border
+                                                }]}
                                                 onPress={() => openExerciseSearch(dayIdx, exIdx, exercise.name)}
                                             >
-                                                <Text>{exercise.name || "Select an exercise"}</Text>
+                                                <Text style={{ color: theme.text.dark }}>
+                                                  {exercise.name || "Select an exercise"}
+                                                </Text>
                                             </TouchableOpacity>
                                         </View>
 
                                         <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 8 }}>
                                             <View style={{ flex: 1 }}>
-                                                <Text style={inputLabel}>Sets</Text>
+                                                <Text style={[inputLabel, { color: theme.text.medium }]}>Sets</Text>
                                                 <TextInput
-                                                    style={inputField}
+                                                    style={[inputField, {
+                                                      backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : '#f9f9f9',
+                                                      borderColor: theme.border,
+                                                      color: theme.text.dark
+                                                    }]}
                                                     value={exercise.sets.toString()}
                                                     onChangeText={(text) => updateExercise(dayIdx, exIdx, 'sets', text)}
                                                     placeholder="0"
+                                                    placeholderTextColor={theme.text.light}
                                                     keyboardType="numeric"
                                                 />
                                             </View>
 
                                             <View style={{ flex: 1 }}>
-                                                <Text style={inputLabel}>Reps/Seconds</Text>
+                                                <Text style={[inputLabel, { color: theme.text.medium }]}>Reps/Seconds</Text>
                                                 <TextInput
-                                                    style={inputField}
+                                                    style={[inputField, {
+                                                      backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : '#f9f9f9',
+                                                      borderColor: theme.border,
+                                                      color: theme.text.dark
+                                                    }]}
                                                     value={exercise.reps}
                                                     onChangeText={(text) => updateExercise(dayIdx, exIdx, 'reps', text)}
                                                     placeholder="0"
+                                                    placeholderTextColor={theme.text.light}
                                                     keyboardType="numeric"
                                                 />
                                             </View>
 
                                             <View style={{ flex: 1 }}>
-                                                <Text style={inputLabel}>Weight</Text>
+                                                <Text style={[inputLabel, { color: theme.text.medium }]}>Weight</Text>
                                                 <TextInput
-                                                    style={inputField}
+                                                    style={[inputField, {
+                                                      backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : '#f9f9f9',
+                                                      borderColor: theme.border,
+                                                      color: theme.text.dark
+                                                    }]}
                                                     value={exercise.weight}
                                                     onChangeText={(text) => updateExercise(dayIdx, exIdx, 'weight', text)}
                                                     placeholder="0"
+                                                    placeholderTextColor={theme.text.light}
                                                     keyboardType="numeric"
                                                 />
                                             </View>
@@ -559,29 +615,31 @@ function WorkoutPlanViewer() {
                                     </View>
                                 ))}
                                 
-                                {/* Add Exercise Button - added after each day's exercises */}
                                 <TouchableOpacity
-                                  style={addExerciseButton}
+                                  style={[addExerciseButton, {
+                                    backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : '#f0f0f0',
+                                    borderColor: theme.border
+                                  }]}
                                   onPress={() => addExerciseToDay(dayIdx)}
                                 >
-                                  <Text style={addExerciseButtonText}>+ Add Exercise</Text>
+                                  <Text style={[addExerciseButtonText, { color: theme.primary }]}>+ Add Exercise</Text>
                                 </TouchableOpacity>
                             </View>
 
-                            {/* Add "Insert Day" button after each day */}
                             <TouchableOpacity
-                                style={addDayButton}
+                                style={[addDayButton, { 
+                                  backgroundColor: isDark ? theme.card : '#e8f4ff',
+                                  borderColor: isDark ? theme.border : '#c8e0ff'
+                                }]}
                                 onPress={() => openAddDayModal(dayIdx + 1)}
                             >
-                                <Text style={addDayButtonText}>+ Insert Day Here</Text>
+                                <Text style={[addDayButtonText, { color: theme.primary }]}>+ Insert Day Here</Text>
                             </TouchableOpacity>
                         </View>
                     ))}
                 </>
             )}
             
-
-            {/* Search Modal - Separate from the ScrollView */}
             <Modal
               visible={isSearchModalVisible}
               transparent={true}
@@ -591,77 +649,83 @@ function WorkoutPlanViewer() {
               <TouchableWithoutFeedback onPress={() => setIsSearchModalVisible(false)}>
                 <View style={modalOverlay}>
                   <TouchableWithoutFeedback onPress={() => {}}>
-                    <View style={[modalContent, { maxHeight: '80%' }]}>
-                      {/* Your modal inner content */}
-                      <Text style={modalTitle}>Find Exercise</Text>
+                    <View style={[modalContent, { 
+                      maxHeight: '80%',
+                      backgroundColor: theme.card 
+                    }]}
+                    >
+                      <Text style={[modalTitle, { color: theme.text.dark }]}>Find Exercise</Text>
 
-                  {/* Search input row with + button */}
-                  <View style={searchInputRow}>
-                    <TextInput
-                      style={[modalInput, { flex: 1 }]}
-                      value={searchText}
-                      onChangeText={setSearchText}
-                      placeholder="Search or type new exercise"
-                      autoFocus
-                    />
-                    {searchText.trim() !== '' && (
-                      <TouchableOpacity 
-                        style={addButton}
-                        onPress={() => saveNewExercise(searchText)}
+                      <View style={searchInputRow}>
+                        <TextInput
+                          style={[modalInput, { 
+                            flex: 1,
+                            backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : '#fff',
+                            borderColor: theme.border,
+                            color: theme.text.dark
+                          }]}
+                          value={searchText}
+                          onChangeText={setSearchText}
+                          placeholder="Search or type new exercise"
+                          placeholderTextColor={theme.text.light}
+                          autoFocus
+                        />
+                        {searchText.trim() !== '' && (
+                          <TouchableOpacity 
+                            style={[addButton, { backgroundColor: theme.primary }]}
+                            onPress={() => saveNewExercise(searchText)}
+                          >
+                            <Text style={addButtonText}>+</Text>
+                          </TouchableOpacity>
+                        )}
+                      </View>
+
+                      <FlatList
+                        data={filteredExercises}
+                        keyExtractor={(item, index) => `exercise-option-${index}`}
+                        style={dropdownList}
+                        renderItem={({ item }) => (
+                          <View style={[dropdownItemContainer, { borderBottomColor: theme.border }]}>
+                            <TouchableOpacity
+                              style={dropdownItemContent}
+                              onPress={() => activeExercise &&
+                                handleExerciseSelect(activeExercise.dayIdx, activeExercise.exIdx, item)
+                              }
+                            >
+                              <Text style={{ color: theme.text.dark }}>{item}</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                              style={deleteButton}
+                              onPress={() => deleteExercise(item)}
+                            >
+                              <Text style={deleteButtonText}>×</Text>
+                            </TouchableOpacity>
+                          </View>
+                        )}
+                        ListEmptyComponent={() => (
+                          <View style={emptyListContainer}>
+                            <Text style={{ textAlign: 'center', padding: 12, color: theme.text.medium }}>
+                              No matching exercises. Add it to the list!.
+                            </Text>
+                          </View>
+                        )}
+                      />
+
+                      <TouchableOpacity
+                        style={[closeDropdownButton, { borderTopColor: theme.border }]}
+                        onPress={() => {
+                          setIsSearchModalVisible(false);
+                          setSearchText('');
+                        }}
                       >
-                        <Text style={addButtonText}>+</Text>
+                        <Text style={[closeButtonText, { color: theme.text.medium }]}>Close</Text>
                       </TouchableOpacity>
-                    )}
-                  </View>
-
-                  {/* Exercise list */}
-                  <FlatList
-                    data={filteredExercises}
-                    keyExtractor={(item, index) => `exercise-option-${index}`}
-                    style={dropdownList}
-                    renderItem={({ item }) => (
-                      <View style={dropdownItemContainer}>
-                        <TouchableOpacity
-                          style={dropdownItemContent}
-                          onPress={() => activeExercise &&
-                            handleExerciseSelect(activeExercise.dayIdx, activeExercise.exIdx, item)
-                          }
-                        >
-                          <Text>{item}</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity
-                          style={deleteButton}
-                          onPress={() => deleteExercise(item)}
-                        >
-                          <Text style={deleteButtonText}>×</Text>
-                        </TouchableOpacity>
-                      </View>
-                    )}
-                    ListEmptyComponent={() => (
-                      <View style={emptyListContainer}>
-                        <Text style={{ textAlign: 'center', padding: 12, color: '#888' }}>
-                          No matching exercises. Add it to the list!.
-                        </Text>
-                      </View>
-                    )}
-                  />
-
-                  <TouchableOpacity
-                    style={closeDropdownButton}
-                    onPress={() => {
-                      setIsSearchModalVisible(false);
-                      setSearchText('');
-                    }}
-                  >
-                    <Text style={closeButtonText}>Close</Text>
-                  </TouchableOpacity>
+                    </View>
+                  </TouchableWithoutFeedback>
                 </View>
               </TouchableWithoutFeedback>
-              </View>
-            </TouchableWithoutFeedback>
             </Modal>
 
-            {/* Plan Selection Modal */}
             <Modal
               visible={isPlanModalVisible}
               transparent
@@ -671,29 +735,33 @@ function WorkoutPlanViewer() {
               <TouchableWithoutFeedback onPress={() => setIsPlanModalVisible(false)}>
                 <View style={modalOverlay}>
                   <TouchableWithoutFeedback onPress={() => {}}>
-                    <View style={[modalContent, { maxHeight: '60%' }]}>
-                      <Text style={modalTitle}>Select Workout Plan</Text>
+                    <View style={[modalContent, { 
+                      maxHeight: '60%',
+                      backgroundColor: theme.card 
+                    }]}
+                    >
+                      <Text style={[modalTitle, { color: theme.text.dark }]}>Select Workout Plan</Text>
 
                       <FlatList
                         data={plans}
                         keyExtractor={(item) => item}
                         renderItem={({ item }) => (
                           <TouchableOpacity
-                            style={dropdownItem}
+                            style={[dropdownItem, { borderBottomColor: theme.border }]}
                             onPress={() => {
                               setSelectedPlan(item);
                               setIsPlanModalVisible(false);
                             }}
                           >
-                            <Text>{workoutPlans[item].type}</Text>
+                            <Text style={{ color: theme.text.dark }}>{workoutPlans[item].type}</Text>
                           </TouchableOpacity>
                         )}
                       />
                       <TouchableOpacity
-                        style={closeDropdownButton}
+                        style={[closeDropdownButton, { borderTopColor: theme.border }]}
                         onPress={() => setIsPlanModalVisible(false)}
                       >
-                        <Text style={closeButtonText}>Cancel</Text>
+                        <Text style={[closeButtonText, { color: theme.text.medium }]}>Cancel</Text>
                       </TouchableOpacity>
                     </View>
                   </TouchableWithoutFeedback>
@@ -701,7 +769,6 @@ function WorkoutPlanViewer() {
               </TouchableWithoutFeedback>
             </Modal>
 
-            {/* Add Day Modal */}
             <Modal
               visible={isAddDayModalVisible}
               transparent
@@ -711,8 +778,12 @@ function WorkoutPlanViewer() {
               <TouchableWithoutFeedback onPress={() => setIsAddDayModalVisible(false)}>
                 <View style={modalOverlay}>
                   <TouchableWithoutFeedback onPress={() => {}}>
-                    <View style={[modalContent, { maxHeight: '50%' }]}>
-                      <Text style={modalTitle}>
+                    <View style={[modalContent, { 
+                      maxHeight: '50%',
+                      backgroundColor: theme.card 
+                    }]}
+                    >
+                      <Text style={[modalTitle, { color: theme.text.dark }]}>
                         {insertAtIndex !== null && insertAtIndex < editablePlan.days.length 
                           ? `Insert Day Before ${editablePlan.days[insertAtIndex]?.day || 'Next Day'}`
                           : insertAtIndex === 0
@@ -721,27 +792,35 @@ function WorkoutPlanViewer() {
                       </Text>
 
                       <TextInput
-                        style={dayNameInput}
+                        style={[dayNameInput, {
+                          backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : '#fefefe',
+                          borderColor: theme.border,
+                          color: theme.text.dark
+                        }]}
                         value={newDayName}
                         onChangeText={setNewDayName}
                         placeholder="Enter day name (e.g., Monday, Leg Day)"
+                        placeholderTextColor={theme.text.light}
                         autoFocus
                       />
 
                       <View style={modalButtonsRow}>
                         <TouchableOpacity
-                          style={[modalButton, modalCancelButton]}
+                          style={[modalButton, modalCancelButton, {
+                            backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : '#f0f0f0',
+                            borderColor: theme.border
+                          }]}
                           onPress={() => {
                             setNewDayName('');
                             setInsertAtIndex(null);
                             setIsAddDayModalVisible(false);
                           }}
                         >
-                          <Text style={modalCancelButtonText}>Cancel</Text>
+                          <Text style={[modalCancelButtonText, { color: theme.text.medium }]}>Cancel</Text>
                         </TouchableOpacity>
 
                         <TouchableOpacity
-                          style={[modalButton, modalAddButton]}
+                          style={[modalButton, modalAddButton, { backgroundColor: theme.primary }]}
                           onPress={addDay}
                         >
                           <Text style={modalAddButtonText}>
@@ -755,51 +834,41 @@ function WorkoutPlanViewer() {
               </TouchableWithoutFeedback>
             </Modal>
 
+          <View style={actionButtonsContainer}>
+            {!isFirstVisit && (
+                <TouchableOpacity
+                  style={[cancelButton, {
+                    backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : '#f0f0f0',
+                    borderColor: theme.border
+                  }]}
+                  onPress={() => navigation.goBack()}
+                >
+                  <Text style={[cancelButtonText, { color: theme.text.medium }]}>Cancel</Text>
+                </TouchableOpacity>
+            )}
+            
             <TouchableOpacity
-              style={saveButton}
+              style={[saveButton, isFirstVisit && { flex: 1 }, { backgroundColor: theme.primary }]}
               onPress={handleSavePlan}
             >
-              <Text style={saveButtonText}>Save Plan</Text>
+              <Text style={saveButtonText}>Update Plan</Text>
             </TouchableOpacity>
+          </View>
         </ScrollView>
     );
 }
 
-// Styles
 const customPickerButton = {
   borderWidth: 1,
-  borderColor: 'gray',
   borderRadius: 8,
   paddingVertical: 12,
   paddingHorizontal: 16,
-  backgroundColor: 'white',
   marginVertical: 10,
   alignItems: 'center',
 };
 
 const customPickerButtonText = {
   fontSize: 16,
-  color: 'black',
-};
-
-const locationPickerStyle = {
-    inputIOS: {
-        fontSize: 16,
-        color: '#333',
-        textDecorationLine: 'underline',
-        paddingVertical: 4,
-        paddingHorizontal: 0,
-    },
-    inputAndroid: {
-        fontSize: 16,
-        color: '#333',
-        textDecorationLine: 'underline',
-        paddingVertical: 4,
-        paddingHorizontal: 0,
-    },
-    placeholder: {
-        color: '#333',
-    }
 };
 
 const divider = {
@@ -812,7 +881,6 @@ const daySection = {
     paddingVertical: 8,
 };
 
-// New styles for day management
 const dayHeaderRow = {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -877,7 +945,6 @@ const exerciseCard = {
     borderColor: '#e0e0e0',
 };
 
-// Empty plan state
 const emptyPlanContainer = {
     padding: 20,
     backgroundColor: '#f5f5f5',
@@ -893,7 +960,6 @@ const emptyPlanText = {
     textAlign: 'center',
 };
 
-// New styles for card header with delete button
 const cardHeaderRow = {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -971,7 +1037,6 @@ const titleUnderline = {
     marginTop: 14,
 };
 
-// Add Exercise Button Styles
 const addExerciseButton = {
   backgroundColor: '#f0f0f0',
   paddingVertical: 12,
@@ -990,7 +1055,6 @@ const addExerciseButtonText = {
   fontSize: 16,
 };
 
-// Search dropdown styles
 const dropdownList = {
   maxHeight: 300,
 };
@@ -1018,7 +1082,6 @@ const closeButtonText = {
   fontWeight: '500',
 };
 
-// Modal styles
 const modalOverlay = {
   flex: 1,
   backgroundColor: 'rgba(0,0,0,0.5)',
@@ -1077,20 +1140,44 @@ fontSize: 24,
 fontWeight: 'bold',
 };
 
+const actionButtonsContainer = {
+  flexDirection: 'row',
+  justifyContent: 'space-between',
+  marginTop: 30,
+  marginBottom: 80,
+  gap: 12,
+};
+
+const cancelButton = {
+  flex: 1,
+  backgroundColor: '#f0f0f0',
+  paddingVertical: 16,
+  paddingHorizontal: 12,
+  borderRadius: 8,
+  alignItems: 'center',
+  borderWidth: 1,
+  borderColor: '#ddd',
+};
+
+const cancelButtonText = {
+  color: '#666',
+  fontSize: 16,
+  fontWeight: '600',
+};
+
 const saveButton = {
-backgroundColor: '#3a86ff',
-paddingVertical: 16,
-paddingHorizontal: 24,
-borderRadius: 8,
-alignItems: 'center',
-marginTop: 30,
-marginBottom: 80,
+  flex: 2,
+  backgroundColor: '#3a86ff',
+  paddingVertical: 16,
+  paddingHorizontal: 16,
+  borderRadius: 8,
+  alignItems: 'center',
 };
 
 const saveButtonText = {
-color: 'white',
-fontSize: 18,
-fontWeight: '700',
+  color: 'white',
+  fontSize: 18,
+  fontWeight: '700',
 };
 
 const dropdownItemContainer = {
@@ -1118,7 +1205,6 @@ fontSize: 20,
 fontWeight: 'bold',
 };
 
-// New styles for Add Day Modal
 const modalButtonsRow = {
 flexDirection: 'row',
 justifyContent: 'space-between',
