@@ -32,15 +32,20 @@ _A sleek mobile-first hypertrophy tracker built with React Native & Expo._
 ## 📦 Project Structure
 
 ```bash
-├── App.tsx                     # Navigation root
-├── plans.json                 # Default plan templates
-├── exercises.txt              # User-defined exercise database
+├── App.tsx
+├── plans.json
+├── exercises.txt
 ├── src/
-│   ├── WorkoutPlanViewer.tsx   # Plan editor and loader
-│   ├── WorkoutPage.tsx         # Core swipeable workout screen
-│   ├── WorkoutDayViewer.tsx    # Daily workout entry
-│   ├── WorkoutStats.tsx        # Charts & history viewer
-│   ├── EditPlan.tsx            # Modify saved plans
+│   ├── EditPlan.tsx
+│   ├── ProfilePage.tsx
+│   ├── TextOverride.tsx
+│   ├── ThemeContext.tsx
+│   ├── WorkoutCalendar.tsx
+│   ├── WorkoutContext.tsx
+│   ├── WorkoutDayViewer.tsx
+│   ├── WorkoutPage.tsx
+│   ├── WorkoutPlanViewer.tsx
+│   ├── WorkoutStats.tsx
 ```
 
 ---
@@ -57,13 +62,13 @@ cd hypertrophy-app
 2. **Install dependencies:**
 
 ```bash
-yarn install
+npm install
 ```
 
 3. **Run it locally with Expo:**
 
 ```bash
-yarn start
+npm start
 ```
 
 Use Expo Go on your phone, or run the Android/iOS emulator to preview the app.
@@ -84,7 +89,6 @@ Here are known or potential issues you may encounter:
 
 - ❗ Inputs may not yet restrict special characters fully
 - ⚠️ ScrollView behavior can differ across devices (esp. Android tablets)
-- 📂 File permissions must be granted; silent failures can occur on save/load
 - 🔁 Edge cases around cycle tracking and rapid switching between plans need more testing
 
 Please report bugs, crashes, or strange behavior via GitHub Issues.
